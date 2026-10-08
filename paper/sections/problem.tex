@@ -1,11 +1,47 @@
 \section{Problem Statement}
 \label{sec:problem}
-%% "We now state the problem precisely." Define every set/symbol (macros in
-%% macros.tex). \paragraph{Goal.} with the formula. Say why it is hard
-%% (cite the known complexity result). End with a question-paragraph that
-%% answers the obvious objection: \paragraph{Why not ...?}
-\todo{Definitions.}
 
-\paragraph{Goal.} \todo{Formula and the one or two things we look for.}
+We now state the problem precisely. A specification defines a set of
+operations \Ops. A tester sends a sequence of at most \Budget requests
+$r_1, \dots, r_{\Budget}$, each for one operation $\mathit{op}(r_i) \in \Ops$,
+and observes a status code $\mathit{status}(r_i)$. The tester chooses each
+request after seeing the responses to the earlier ones.
 
-\paragraph{Why not \todo{the obvious alternative}?} \todo{Answer.}
+\paragraph{Reached operations.} An operation is \emph{reached} when at least
+one request for it returned a 2XX status:
+\begin{equation}
+  \Reached = \{\, o \in \Ops \mid \exists i:\ \mathit{op}(r_i) = o \ \wedge\
+  200 \le \mathit{status}(r_i) < 300 \,\}.
+  \label{eq:reached}
+\end{equation}
+$|\Reached|$ is the operation coverage of REST League.
+
+\paragraph{Unique faults.} A function \sig maps a 5XX response to a
+\emph{signature}: the operation, the status code and the error message with
+the parts that change from request to request removed (numbers, ids, and
+values the API echoes back in quotes). The unique faults are
+\begin{equation}
+  \Faults = \{\, \sig(r_i) \mid 500 \le \mathit{status}(r_i) < 600 \,\}.
+  \label{eq:faults}
+\end{equation}
+
+\paragraph{Goal.} Given the specification and the budget \Budget, produce
+requests that make $|\Reached|$ as large as possible, and reach it with as
+few requests as possible, so that the rest of the budget can go to error
+requests that grow $|\Faults|$. This report studies the input side of this
+goal: which values to put into each request, and in which order to try the
+operations. Choosing what to send next during a run is the engine's job and
+is outside this report.
+
+\paragraph{Why is this hard?} A schema states only part of what the API
+checks. The API also checks rules the schema does not state: a date string
+must parse, an id must name an existing resource, and a resource must exist
+before it is read. A request that follows the schema can still be rejected,
+and a request that breaks it can still be accepted.
+
+\paragraph{Why not just send the examples in the specification?} Because
+most specifications have none. In our set of \NSpecs specifications,
+\NSpecsWithoutExamples contain no \texttt{example} value at all
+(Table~\ref{tab:parser} lists the specifications). Even where examples exist,
+they cover only some parameters, and an example id such as \texttt{1} is
+right only while resource~1 exists.

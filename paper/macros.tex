@@ -2,6 +2,7 @@
 %% Rule: every name, symbol and set used more than once gets a macro here.
 \usepackage{amsmath}
 \usepackage{booktabs}
+\usepackage{multirow}
 \usepackage{xspace}
 \usepackage{listings}
 \usepackage{xcolor}
@@ -15,10 +16,15 @@
 % Works for any CS-5187 project: a tool, a technique/method, or an empirical
 % study. With no tool (e.g. a study), read \tool as "our study" and reword
 % "We present \tool" -> "We study ...", "\tool records" -> "our method ...".
-\newcommand{\tool}{\textsc{YourTool}\xspace}   % TODO: final name (tool, method, or study)
+\newcommand{\tool}{\textsc{SpecSeed}\xspace}   % the spec component (parser, values, order)
 
 % ---- notation (one macro per symbol; comment says what it means) ----
-% \newcommand{\Seen}[1]{\ensuremath{\mathit{Seen}(#1)}} % example: lines the compiler sees
+\newcommand{\Ops}{\ensuremath{O}\xspace}                    % operations of a specification
+\newcommand{\Budget}{\ensuremath{B}\xspace}                 % request budget
+\newcommand{\Reached}{\ensuremath{\mathit{Reached}}\xspace} % operations with at least one 2XX
+\newcommand{\Faults}{\ensuremath{\mathit{Faults}}\xspace}   % unique 5XX signatures
+\newcommand{\sig}{\ensuremath{\mathit{sig}}}                % 5XX signature function
+\newcommand{\mode}[1]{\textsf{#1}}                          % generation mode: VALID, BOUNDARY, INVALID
 
 % ---- research questions ----
 \newcommand{\rqref}[1]{\textbf{RQ#1}\xspace}

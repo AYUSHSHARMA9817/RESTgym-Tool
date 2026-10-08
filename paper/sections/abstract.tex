@@ -1,11 +1,22 @@
 %% ABSTRACT (150-250 words, one paragraph, no citations, no \ref).
-%% Pattern (from earlier papers):
-%%  1. The problem in 2-3 short sentences. Plain words; what tools do today.
-%%  2. Why it matters: ONE concrete, real case with an exact number
-%%     (e.g. a CVE, a miscompilation, a measured share).
-%%  3. "We present \tool." What it does, in steps, in one or two sentences.
-%%  4. Results with numbers: "On X, \tool ... from A\% to B\%."
-%%  5. One honest lesson or surprise the work taught ("The run also shows ...").
-%% No "novel", no "we propose a framework", no promises without numbers.
-\todo{Problem in two sentences.} \todo{One real case with a number.}
-We present \tool. \todo{What it does.} \todo{Results with numbers.}
+Black-box REST API testers build their requests from the API's OpenAPI
+specification. If the requests do not pass the API's first checks, the tester
+spends its budget on rejections and never reaches the code behind them. The
+types in the specification are not enough. On the pet-clinic API, a generator
+that followed only the types sent \NMotivBaselineRequests requests to add a
+pet; all of them failed with a server error while parsing a random date, and
+none created a pet. We present \tool, the input component of a testing tool
+for the REST League 2027 competition. It parses the specification and
+resolves every reference, fills each request with values taken from
+examples, formats, regular-expression patterns and parameter names, reuses
+real ids from earlier responses, and orders operations so that resources are
+created before they are used. On \NSpecs real specifications with
+\NOpsTotal operations, \tool left no reference unresolved, and \NConfTool of
+its generated values followed their schema, against \NConfBaseline for a
+type-only generator. On two competition APIs run live with the same request
+budget, it raised the operations that returned a success from
+\NPetclinicBaselineCov to \NPetclinicFullCov and from
+\NGestaohospitalBaselineCov to \NGestaohospitalFullCov. Measuring each part
+on its own showed that schema-aware values and id reuse gave this gain, while
+ordering operations by their dependencies added no reached operation on
+either API.

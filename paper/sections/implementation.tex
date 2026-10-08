@@ -1,6 +1,41 @@
 \section{Implementation}
 \label{sec:impl}
-%% Optional. Language, size (lines of code, number of modules), what it
-%% depends on (versions), how it is tested (unit tests, a hand-counted
-%% fixture). Pitfalls met while building it are worth a short paragraph each.
-\todo{Implementation.}
+
+\tool is written in Python and uses only the standard library, so the
+competition container needs no extra packages. It has \NLocSpec lines of
+code (without blank lines and comments): \NLocParser for Step~1,
+\NLocDeps for Step~2, and \NLocValues for Steps 3 and~4. The shared data
+types (operation, parameter, request, response) come from the team's common
+interface file and are not counted.
+
+\paragraph{Tests.} The tests have \NLocTests lines. A ladder of \NLevels
+small specifications checks Step~1 one rule at a time, from a single
+\texttt{GET} up to recursive schemas, \texttt{allOf} and base paths, against
+exact expected output. A second check parses all \NSpecs real specifications
+and counts the operations and the references left. A third check generates
+30 requests per operation and mode for every specification and fails on a
+crash or on a \mode{VALID} value that breaks its schema. A fourth check uses
+a stand-in pool and asserts that real ids reach the path parameters.
+
+\paragraph{Pitfalls.} Four problems showed up only on real specifications
+and APIs.
+First, the flight-search specification gives some strings a
+\texttt{maxLength} of $2^{31}-1$. An early version of \mode{BOUNDARY} mode
+tried to build a string of that length and ran out of memory. \tool now caps
+strings at 5{,}000 characters and arrays at 50 items. Second, one
+specification writes its patterns in Java syntax, such as \verb|\p{L}|,
+which Python cannot parse. \tool then skips its pattern generator and keeps
+the values from the other sources. Third, a first live evaluation never
+created a hospital on gestao-hospital. Its specification lists an
+\texttt{id} field in the body of \texttt{POST /v1/hospitais/} without marking
+it read-only, so \tool sent one. The API then looks for a hospital with that
+\texttt{id}, finds none, and answers 400; the same body without the
+\texttt{id} returns 200
+(\texttt{data/diagnosis.json}). \tool now leaves out an optional field named
+\texttt{id} from the body of every \texttt{POST} request. Fourth, Step~2
+removes a plural \texttt{s} the English way, which turns the Portuguese
+collection \texttt{hospitais} into the key \texttt{hospitaiid}, while the path
+parameter \texttt{hospital\_id} becomes \texttt{hospitalid}. The two never
+matched, so no hospital id was ever reused. Two keys now also match when they
+share their first six characters. All results in this report come from the
+version with the last two changes.

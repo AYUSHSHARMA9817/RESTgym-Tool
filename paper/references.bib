@@ -2,9 +2,162 @@
 %% publisher page. Record the date of each verification pass here.
 %% Web pages / advisories: @misc with url and note = {Accessed: YYYY-MM-DD}.
 %% Fabricated or wrong citations can lead to desk rejection.
+%%
+%% Verification pass: 2026-10-08. Every @inproceedings/@article below was checked
+%% against api.crossref.org (title, authors, venue, year, pages, DOI).
+%% Every @misc URL returned HTTP 200 (or a redirect to it) on 2026-10-08.
 
-@misc{placeholder,
-  title = {{Placeholder entry -- delete}},
-  howpublished = {\url{https://example.org}},
-  note = {Accessed: 2026-01-01}
+@inproceedings{restler,
+  author    = {Atlidakis, Vaggelis and Godefroid, Patrice and Polishchuk, Marina},
+  title     = {{RESTler}: Stateful {REST} {API} Fuzzing},
+  booktitle = {Proceedings of the 41st IEEE/ACM International Conference on Software Engineering (ICSE)},
+  year      = {2019},
+  pages     = {748--758},
+  doi       = {10.1109/ICSE.2019.00083}
+}
+
+@inproceedings{resttestgen,
+  author    = {Viglianisi, Emanuele and Dallago, Michael and Ceccato, Mariano},
+  title     = {{RESTTESTGEN}: Automated Black-Box Testing of {RESTful} {APIs}},
+  booktitle = {Proceedings of the 13th IEEE International Conference on Software Testing, Validation and Verification (ICST)},
+  year      = {2020},
+  pages     = {142--152},
+  doi       = {10.1109/ICST46399.2020.00024}
+}
+
+@article{resttestgen-stvr,
+  author    = {Corradini, Davide and Zampieri, Amedeo and Pasqua, Michele and Viglianisi, Emanuele and Dallago, Michael and Ceccato, Mariano},
+  title     = {Automated Black-Box Testing of Nominal and Error Scenarios in {RESTful} {APIs}},
+  journal   = {Software Testing, Verification and Reliability},
+  year      = {2022},
+  volume    = {32},
+  number    = {5},
+  pages     = {e1808},
+  doi       = {10.1002/stvr.1808}
+}
+
+@inproceedings{corradini-comparison,
+  author    = {Corradini, Davide and Zampieri, Amedeo and Pasqua, Michele and Ceccato, Mariano},
+  title     = {Empirical Comparison of Black-box Test Case Generation Tools for {RESTful} {APIs}},
+  booktitle = {Proceedings of the 21st IEEE International Working Conference on Source Code Analysis and Manipulation (SCAM)},
+  year      = {2021},
+  pages     = {226--236},
+  doi       = {10.1109/SCAM52516.2021.00035}
+}
+
+@article{evomaster,
+  author    = {Arcuri, Andrea},
+  title     = {{RESTful} {API} Automated Test Case Generation with {EvoMaster}},
+  journal   = {ACM Transactions on Software Engineering and Methodology},
+  year      = {2019},
+  volume    = {28},
+  number    = {1},
+  pages     = {1--37},
+  doi       = {10.1145/3293455}
+}
+
+@inproceedings{arat-rl,
+  author    = {Kim, Myeongsoo and Sinha, Saurabh and Orso, Alessandro},
+  title     = {Adaptive {REST} {API} Testing with Reinforcement Learning},
+  booktitle = {Proceedings of the 38th IEEE/ACM International Conference on Automated Software Engineering (ASE)},
+  year      = {2023},
+  pages     = {446--458},
+  doi       = {10.1109/ASE56229.2023.00218}
+}
+
+@inproceedings{no-time-to-rest,
+  author    = {Kim, Myeongsoo and Xin, Qi and Sinha, Saurabh and Orso, Alessandro},
+  title     = {Automated Test Generation for {REST} {APIs}: No Time to Rest Yet},
+  booktitle = {Proceedings of the 31st ACM SIGSOFT International Symposium on Software Testing and Analysis (ISSTA)},
+  year      = {2022},
+  pages     = {289--301},
+  doi       = {10.1145/3533767.3534401}
+}
+
+@inproceedings{nlp2rest,
+  author    = {Kim, Myeongsoo and Corradini, Davide and Sinha, Saurabh and Orso, Alessandro and Pasqua, Michele and Tzoref-Brill, Rachel and Ceccato, Mariano},
+  title     = {Enhancing {REST} {API} Testing with {NLP} Techniques},
+  booktitle = {Proceedings of the 32nd ACM SIGSOFT International Symposium on Software Testing and Analysis (ISSTA)},
+  year      = {2023},
+  pages     = {1232--1243},
+  doi       = {10.1145/3597926.3598131}
+}
+
+@inproceedings{morest,
+  author    = {Liu, Yi and Li, Yuekang and Deng, Gelei and Liu, Yang and Wan, Ruiyuan and Wu, Runchao and Ji, Dandan and Xu, Shiheng and Bao, Minli},
+  title     = {{Morest}: Model-Based {RESTful} {API} Testing with Execution Feedback},
+  booktitle = {Proceedings of the 44th International Conference on Software Engineering (ICSE)},
+  year      = {2022},
+  pages     = {1406--1417},
+  doi       = {10.1145/3510003.3510133}
+}
+
+@inproceedings{restest,
+  author    = {Martin-Lopez, Alberto and Segura, Sergio and Ruiz-Cort{\'e}s, Antonio},
+  title     = {{RESTest}: Automated Black-Box Testing of {RESTful} Web {APIs}},
+  booktitle = {Proceedings of the 30th ACM SIGSOFT International Symposium on Software Testing and Analysis (ISSTA)},
+  year      = {2021},
+  pages     = {682--685},
+  doi       = {10.1145/3460319.3469082}
+}
+
+@inproceedings{schemathesis,
+  author    = {Hatfield-Dodds, Zac and Dygalo, Dmitry},
+  title     = {Deriving Semantics-Aware Fuzzers from Web {API} Schemas},
+  booktitle = {Proceedings of the 44th ACM/IEEE International Conference on Software Engineering: Companion Proceedings (ICSE-Companion)},
+  year      = {2022},
+  pages     = {345--346},
+  doi       = {10.1145/3510454.3528637}
+}
+
+@inproceedings{deeprest,
+  author    = {Corradini, Davide and Montolli, Zeno and Pasqua, Michele and Ceccato, Mariano},
+  title     = {{DeepREST}: Automated Test Case Generation for {REST} {APIs} Exploiting Deep Reinforcement Learning},
+  booktitle = {Proceedings of the 39th IEEE/ACM International Conference on Automated Software Engineering (ASE)},
+  year      = {2024},
+  pages     = {1383--1394},
+  doi       = {10.1145/3691620.3695511}
+}
+
+@article{arte,
+  author    = {Alonso, Juan C. and Martin-Lopez, Alberto and Segura, Sergio and Garcia, Jose Maria and Ruiz-Cort{\'e}s, Antonio},
+  title     = {{ARTE}: Automated Generation of Realistic Test Inputs for Web {APIs}},
+  journal   = {IEEE Transactions on Software Engineering},
+  year      = {2023},
+  volume    = {49},
+  number    = {1},
+  pages     = {348--363},
+  doi       = {10.1109/TSE.2022.3150618}
+}
+
+@article{idl,
+  author    = {Martin-Lopez, Alberto and Segura, Sergio and M{\"u}ller, Carlos and Ruiz-Cort{\'e}s, Antonio},
+  title     = {Specification and Automated Analysis of Inter-Parameter Dependencies in Web {APIs}},
+  journal   = {IEEE Transactions on Services Computing},
+  year      = {2022},
+  volume    = {15},
+  number    = {4},
+  pages     = {2342--2355},
+  doi       = {10.1109/TSC.2021.3050610}
+}
+
+@misc{openapi,
+  author       = {{OpenAPI Initiative}},
+  title        = {{OpenAPI Specification} Version 3.0.3},
+  howpublished = {\url{https://spec.openapis.org/oas/v3.0.3}},
+  note         = {Accessed: 2026-10-08}
+}
+
+@misc{restleague,
+  author       = {{REST League organisers}},
+  title        = {{REST League 2027}: Competition for Black-Box {REST} {API} Testing Tools},
+  howpublished = {\url{https://seunivr.github.io/RestLeague/2027/}},
+  note         = {Accessed: 2026-10-08}
+}
+
+@misc{restgym,
+  author       = {{SeUniVr}},
+  title        = {{RESTgym}: Infrastructure for the Empirical Assessment of {REST} {API} Testing Tools},
+  howpublished = {\url{https://github.com/SeUniVr/RESTgym}},
+  note         = {Accessed: 2026-10-08}
 }

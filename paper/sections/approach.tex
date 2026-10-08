@@ -1,28 +1,117 @@
 \section{Approach}
 \label{sec:approach}
-%% Start with the figure and the main idea in 2-3 sentences.
-%% One \subsection per step, titled "Step N: ..." matching the figure numbers.
-%% Say what is NOT new: "We do not claim this step as new. Everything after it is."
-%% Lists of actions use (i)~...; (ii)~...; inline.
 
-\focus{\textbf{Workflow.} Show how your method works end to end. Start with
-  the overview figure (Figure~\ref{fig:overview}) and state the main idea in
-  2--3 sentences: what goes in, what comes out, what loops, what is
-  expensive. Then one \texttt{\textbackslash subsection} per numbered box in
-  the figure --- the step numbers in the text must match the figure. Say
-  plainly which steps are yours and which you reuse (``We do not claim this
-  step as new'').}
-
-Figure~\ref{fig:overview} shows the steps of \tool. The main idea is
-\todo{one sentence}.
+Figure~\ref{fig:overview} shows the steps of \tool. The main idea is to
+answer every question about a request from the specification first, and from
+the API's earlier answers second. \tool reads the specification once (Steps 1
+and~2). It then builds each request on demand (Steps 3 and~4). The engine
+sends the request and stores the ids from 2XX responses in the resource pool,
+so later requests can use real ids. Only Step~3 and Step~4 run per request,
+and both run in microseconds (Section~\ref{sec:rq4}). The expensive part is
+the HTTP round trip, which is not ours.
 
 \begin{figure}[t]
   \centering
   \input{figures/overview}
-  \caption{Overview of \tool. \todo{What loops, what is expensive.}}
+  \caption{Overview of \tool. Steps 1 and 2 run once per specification;
+    Steps 3 and 4 run for every request. The engine and the resource pool
+    (dashed, shaded) belong to the team's engine: \tool only asks the pool
+    for ids. The dashed arrow is the loop that turns 2XX responses into
+    real ids for later requests.}
   \label{fig:overview}
 \end{figure}
 
-\subsection{Step 1: \todo{Name}}
+\subsection{Step 1: Parse and Resolve}
 \label{sec:step1}
-\todo{Text.}
+\tool turns the specification into a list of operations whose schemas
+contain no references. For each path and each HTTP method under it, it
+builds one operation with (i)~its parameters; (ii)~its request body;
+(iii)~one schema per response status. Five rules decide the details.
+\begin{enumerate}
+  \item \emph{Any reference.} A \texttt{\$ref} is a pointer into the same
+    document. \tool follows it by walking the document key by key, so the
+    same code resolves schemas, parameters, request bodies and responses.
+  \item \emph{Recursion.} \tool passes down the set of references it is
+    currently inside. When it meets one of them again, it replaces that
+    reference with an empty object schema and stops. The same reference used
+    twice side by side is expanded twice, because it is not a cycle.
+  \item \emph{Composition.} \texttt{allOf} becomes one object schema whose
+    properties and required fields are the union of its parts.
+    \texttt{oneOf} and \texttt{anyOf} become their first option.
+  \item \emph{Parameters.} Parameters declared on the path apply to every
+    method under it; a parameter of the operation with the same name and
+    location replaces them. Path parameters are always required.
+  \item \emph{Base path.} If the server URL has a path, such as
+    \texttt{/api/v2}, \tool puts it in front of every operation path. The
+    host and port come from the test setup, not from the specification.
+\end{enumerate}
+We do not claim this step as new: OpenAPI libraries resolve references too.
+We wrote it ourselves to keep the component free of third-party packages
+inside the competition container, and we tested it with 13 small
+specifications, one rule each, before running it on real ones.
+
+\subsection{Step 2: Order Operations}
+\label{sec:step2}
+\tool decides which operations create the resources that others need, and
+sorts the operations so that creators come first. It names every resource
+with a \emph{resource key}: a lower-case word without the plural and with
+\texttt{id} added, so \texttt{owners}, \texttt{ownerId} and
+\texttt{owner\_id} all become \texttt{ownerid}. A bare path parameter such as
+\texttt{\{id\}} takes the name of the path segment before it.
+
+An operation \emph{produces} a key when it is a \texttt{POST} to a collection
+path, such as \texttt{POST /owners}. It \emph{consumes} a key for each path
+parameter, and for each required body field that names another resource,
+either a field ending in \texttt{Id} or an object with an \texttt{id}
+property. When no operation produces a consumed key exactly, \tool takes the
+shortest producer key that ends with it or shares its first six characters,
+so the body field \texttt{type} (key \texttt{typeid}) links to
+\texttt{POST /pettypes} (key \texttt{pettypeid}). The \emph{depth} of an operation is the length of the
+longest chain of producers before it. The final order is: creators and
+readers by increasing depth, and \texttt{DELETE} operations last, deepest
+first, so a pet is deleted before its owner. The idea of producer--consumer
+order comes from RESTler~\cite{restler} and the operation dependency graph of
+RestTestGen~\cite{resttestgen}; we use a small name-based version of it.
+
+\subsection{Step 3: Generate Values}
+\label{sec:step3}
+For each request, \tool fills every required parameter, about half of the
+optional ones, and the request body. It has three modes. In \mode{VALID}
+mode it tries to satisfy the schema and the API. For each value it takes the
+first source that applies:
+(i)~an \texttt{example} or \texttt{default} in the schema;
+(ii)~an \texttt{enum} member;
+(iii)~a value built for the \texttt{format}, such as an ISO date for
+\texttt{date} or a well-formed UUID;
+(iv)~a value built for the \texttt{pattern};
+(v)~a value chosen from the name, such as an e-mail address for
+\texttt{email}, ten digits for \texttt{telephone}, or a small integer for a
+field ending in \texttt{Id};
+(vi)~a random value of the right type inside the stated limits.
+For objects it leaves out read-only fields, which the server sets.
+
+\paragraph{Patterns.} To satisfy a \texttt{pattern}, \tool parses the regular
+expression with Python's own regular-expression parser and walks the parse
+tree: it emits literals, picks a character from each class, and repeats each
+part a random number of times inside its bounds, preferring the minimum. It
+then checks the result against the pattern and the length limits, and falls
+back to simpler guesses (digits only, letters only) when the check fails.
+
+\paragraph{Error modes.} In \mode{BOUNDARY} mode, numbers and lengths sit at
+their stated limits. In \mode{INVALID} mode, \tool first builds a
+\mode{VALID} request and then breaks exactly one thing: one parameter, one
+body field, or the whole body (a wrong type, a value outside the limits, a
+missing required field, or malformed JSON). The rest of the request stays
+valid, so it passes the API's first checks and the error reaches deeper
+code. We do not claim error modes as new; RestTestGen also separates nominal
+and error testing~\cite{resttestgen-stvr}.
+
+\subsection{Step 4: Reuse Ids}
+\label{sec:step4}
+Before Step~3 builds a value for a path or query parameter, or for a body
+field that looks like an id, \tool asks the resource pool for a real one:
+\texttt{pool.lookup(name, schema, op)}. If the pool has one, \tool uses it.
+For a body field that is itself a resource, such as the \texttt{type} of a
+pet, it asks for a whole object with \texttt{pool.lookup\_object} and sends
+an existing pet type. If the pool has nothing, Step~3 makes up a value. The
+pool lives in the engine; \tool only reads from it.

@@ -1,8 +1,19 @@
 \section{Conclusion}
 \label{sec:conclusion}
-%% Two short paragraphs. (1) The problem again in 2-3 sentences with the key
-%% number. (2) "We presented \tool, which ..." + the main results with the
-%% same numbers as the abstract. No new claims, no new numbers, no hype.
-\todo{Problem and key number.}
 
-We presented \tool, which \todo{}.
+A black-box REST API tester can only test what its requests reach. When it
+follows only the types in the specification, the API rejects most of its
+requests at the first check: on pet-clinic, a type-only generator reached
+\NPetclinicBaselineCov of the operations, and all \NMotivBaselineRequests of
+its requests to add a pet failed while parsing a random date.
+
+We presented \tool, which parses an OpenAPI specification, generates values
+from examples, formats, patterns and names, reuses real ids from earlier
+responses, and orders operations by their dependencies. It parsed all
+\NSpecs specifications we tried, kept \NConfTool of its generated values
+inside their schema against \NConfBaseline for a type-only generator, and
+raised the operations reached from \NPetclinicBaselineCov to
+\NPetclinicFullCov on pet-clinic and from \NGestaohospitalBaselineCov to
+\NGestaohospitalFullCov on gestao-hospital with the same request budget.
+Values and id reuse gave this gain; operation order added no reached
+operation.

@@ -1,16 +1,20 @@
 \section*{Data Availability}
 \label{sec:data}
-%% Most SE venues require this (ISEC: "Artifact Availability"; FSE/ICSE:
-%% "Data Availability", after the Conclusion). While anonymous: export
-%% WITHOUT git history, scrub absolute paths (/Users/<name>/...) from JSON
-%% and logs, use an anonymous mirror (anonymous.4open.science).
-The replication package is available at \todo{anonymous URL}. It contains
-\todo{source of \tool with tests, subject list with exact commits, scripts,
-raw data, container definition}.
+The replication package is the submission repository itself. Its
+\texttt{src/} folder contains the source of \tool with its tests, the
+\NSpecs specifications we used, the evaluation scripts, and a script that
+fetches the two APIs at the exact commits we tested. Its
+\texttt{paper/data/} folder contains every raw result: one JSON file per live
+run with per-operation counts and every 5XX signature, the CSV files of the
+offline evaluation, and the file of numbers that this paper prints.
+\texttt{src/README.md} lists the commands that regenerate each file.
 
 \section*{Use of Generative AI}
-%% ACM/IEEE authorship policies require disclosure. Confirm every word.
-\todo{Confirm and finalise.} A generative AI assistant (\todo{name, version})
-was used to \todo{what}. The authors checked every statement, every citation
-and every number. All numbers reported here were produced by running the
-tool and scripts.
+A generative AI assistant (Claude Opus 5.5, by Anthropic) was used in this
+project. It wrote most of the source code of \tool and of the evaluation
+scripts from the author's task description and the team's interface file,
+helped find and fix defects found by the tests, looked up and checked the
+bibliographic data of the cited papers against Crossref, and drafted the
+text of this report. The author reviewed the code, the text and the
+citations. All numbers reported here were produced by running the tool and
+scripts in \texttt{src/}; the paper reads them from a generated file.

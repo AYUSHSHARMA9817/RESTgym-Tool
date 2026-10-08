@@ -1,8 +1,52 @@
 \section{Background}
 \label{sec:background}
-%% Only what a reader needs for the rest of the paper. One \paragraph{} per
-%% concept. Define each term once with \emph{term} and use it the same way
-%% afterwards (no synonyms). Walk through the motivating example in detail
-%% here if the introduction was brief (label it sec:example).
 
-\paragraph{\todo{Concept}.} \todo{Plain definition, then a small example.}
+\paragraph{REST APIs and OpenAPI.} A REST API offers \emph{operations}: an
+HTTP method on a path template, such as \texttt{POST /owners/\{ownerId\}/pets}.
+An \emph{OpenAPI specification}~\cite{openapi} is a JSON or YAML document that
+lists every operation with its parameters (in the path, query, header or
+cookie), its request body and its responses. Each parameter and body has a
+\emph{schema}: a type plus optional limits such as \texttt{enum},
+\texttt{minimum}, \texttt{maxLength}, a regular expression in
+\texttt{pattern}, or a \texttt{format} such as \texttt{date}.
+
+\paragraph{References and composition.} A schema is rarely written in place.
+It points to a shared definition with \texttt{\$ref}, for example
+\texttt{\{"\$ref": "\#/components/schemas/Pet"\}}. Parameters, request bodies
+and responses can be references too. A schema can also be built from parts:
+\texttt{allOf} means ``all of these at once'', while \texttt{oneOf} and
+\texttt{anyOf} offer alternatives. A \emph{recursive schema} reaches itself
+through references, such as a tree node whose children are tree nodes.
+
+\paragraph{Black-box REST API testing.} A black-box tester sees only the
+specification and the HTTP responses, not the source code. It sends requests
+and reads the status code. A 2XX status means the API accepted the request.
+A 4XX status means the API rejected it as a client error. A 5XX status means
+the server failed. Testers usually run two kinds of requests: \emph{nominal}
+requests that try to follow the specification, and \emph{error} requests that
+break it on purpose~\cite{resttestgen-stvr}.
+
+\paragraph{Operation dependencies.} Many operations need a resource that
+another operation creates. \texttt{GET /owners/\{ownerId\}} returns 404 unless
+\texttt{ownerId} names an owner that exists. A tester must therefore create
+resources first and reuse the identifiers (\emph{ids}) that come back.
+RESTler calls this producer--consumer inference~\cite{restler}.
+
+\paragraph{REST League.} REST League 2027~\cite{restleague} is a competition
+for black-box REST API testing tools. Each tool gets one hour per API inside
+RESTgym~\cite{restgym}. It is scored on (i)~unique 5XX responses, where two
+5XX responses count once when their error messages are not sufficiently
+distinct; (ii)~\emph{operation coverage}, the operations that returned at
+least one 2XX; (iii)~code coverage; and (iv)~how fast the tool reaches these
+values. Five of its ten APIs are known in advance; pet-clinic and
+gestao-hospital, the two APIs we test live in Section~\ref{sec:eval}, are
+among them.
+
+\paragraph{Our team tool.} We build a REST League tool in three parts with a
+fixed interface between them. The \emph{spec component} reads the
+specification and produces requests. The \emph{engine} sends the requests,
+keeps a \emph{resource pool} of ids seen in responses, and decides what to
+try next. The \emph{packaging} runs the tool in RESTgym. This report is about
+the spec component, which we call \tool. The engine calls \tool through one
+function, \texttt{generate\_request(op, pool, mode)}, and \tool asks the pool
+for real ids through \texttt{pool.lookup(name, schema, op)}.

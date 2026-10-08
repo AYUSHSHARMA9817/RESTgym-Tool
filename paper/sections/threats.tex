@@ -1,16 +1,50 @@
 \section{Threats to Validity}
 \label{sec:threats}
-%% Internal / External / Construct. For each threat: what it is, what we did
-%% about it (itemize if several guards), what remains. Report non-determinism
-%% and LLM run-to-run variation with numbers.
-\focus{\textbf{Threats to validity.} Be honest about what could make your
-  conclusions wrong. Cover all three kinds below. For each: name the threat,
-  say what you did to reduce it (itemise the guards), and what still remains.
-  Report any non-determinism or run-to-run variation with numbers. Graded on
-  honesty, not on having zero threats.}
 
-\paragraph{Internal threats.} \todo{}
+\paragraph{Internal threats.} Four things could make our comparison wrong.
+First, we wrote the baseline ourselves, so it could be weaker than it should
+be. Second, the live runner and the resource pool are small stand-ins that we
+wrote for this evaluation, not the team's engine. Third, the same author wrote
+the value generator and the schema checker of \rqref{2}, so both could share
+one misreading of a keyword. Fourth, generation and the APIs are random. Our
+guards:
+\begin{itemize}
+  \item the baseline follows the schema \texttt{type} and \texttt{enum},
+    fills the same parameters as \tool, and goes through the same runner with
+    the same budget; it is not tuned to fail;
+  \item the runner and pool are the same for all four configurations, so the
+    differences between configurations come from \tool;
+  \item the checker parses dates and UUIDs with Python's standard library, not
+    with code from \tool, and \rqref{2} counts only keywords that the checker
+    understands;
+  \item every configuration ran \NReps times with fixed seeds, each time on a
+    freshly started API, and Table~\ref{tab:live} reports the standard
+    deviation.
+\end{itemize}
+What remains: a real engine chooses requests from feedback, and may narrow or
+widen the gaps we measured. Our 5XX signature masks quoted text in error
+messages; two faults that differ only in a quoted name count as one, so
+\Faults may be smaller than the number of distinct messages. In a trial run
+we read the signatures of the operation with the most 5XX responses and found
+no duplicates caused by echoed input.
 
-\paragraph{External threats.} \todo{Subjects, platform, versions.}
+\paragraph{External threats.} We ran \tool live on two APIs, both written in
+Java with Spring, out of the five known REST League APIs, and the competition
+adds five APIs that nobody has seen. All \NSpecs specifications are
+OpenAPI~3.0 files in JSON. \tool reads YAML only when the PyYAML package is
+present and does not read Swagger~2.0 at all, so an unseen API with such a
+specification would fail at Step~1. None of the specifications had a
+recursive schema. We used one machine and one version of each tool, listed in
+Section~\ref{sec:setup}.
 
-\paragraph{Construct threats.} \todo{Does the metric measure what we claim?}
+\paragraph{Construct threats.} We measure what REST League scores, but the
+scores are proxies. An operation counts as reached after one 2XX response,
+even when that response did little, such as a list request on an empty
+collection. A unique 5XX response is not always a bug that a developer would
+fix: many of the 5XX responses we saw on pet-clinic are wrong parameter types
+that the API reports as 500 instead of 400. They count in the competition, so
+we count them, but we do not call them bugs. Schema conformance in \rqref{2}
+means only that a value fits the schema; the API can still reject it, which
+is why \rqref{3} measures acceptance on running APIs. We did not measure code
+coverage, the third REST League metric, because our runner talks to the APIs
+directly instead of through RESTgym's coverage collection.

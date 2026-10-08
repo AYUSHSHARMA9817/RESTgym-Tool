@@ -1,54 +1,221 @@
 \section{Evaluation}
 \label{sec:eval}
-%% Structure (keep): RQ list -> Subjects -> Baselines -> Measurements
-%% -> Setup -> one \subsection per RQ with Observations.
-%% Each RQ is a plain question a practitioner would ask.
 
-\focus{\textbf{Research questions.} State 2--4 questions a practitioner would
-  actually ask. Each is a plain yes/no or how-much question you can answer
-  with a measurement --- not ``Is our tool good?''. Cover: does it work
-  (\rqref{1}), is it better than a simpler baseline (\rqref{2}), does it
-  change the outcome for a user (\rqref{3}), and what does it cost
-  (\rqref{4}). Every RQ must be answered later by an \texttt{observation}
-  box backed by a number. This is graded.}
-
-We ask \todo{n} questions.
+We ask four questions.
 \begin{itemize}
-  \item[\rqref{1}] \todo{Question?}
-  \item[\rqref{2}] \todo{Question, compared with simpler baselines?}
-  \item[\rqref{3}] \todo{Does it change what tools/users get?}
-  \item[\rqref{4}] What does \tool cost in time \todo{and resources}?
+  \item[\rqref{1}] Can \tool read the specifications that real REST APIs
+    publish, including their references and composed schemas?
+  \item[\rqref{2}] Do the \mode{VALID} values of \tool follow their schema
+    more often than values from a simpler generator that knows only types and
+    enumerations?
+  \item[\rqref{3}] On running APIs, how many operations reach a 2XX response
+    with each part of \tool (values, id reuse, order), and how does the
+    number of unique 5XX responses change?
+  \item[\rqref{4}] What does \tool cost, in time per request and in
+    requests spent before the operations are reached?
 \end{itemize}
 
 \subsection{Subjects}
 \label{sec:subjects}
-%% Selection criteria as an enumerate; exact versions/commits; why these.
-We select \todo{n} subjects with the following criteria:
+For \rqref{1} and \rqref{2} we use all \NSpecs OpenAPI specifications that
+come with the RESTgym APIs~\cite{restgym}: the ten in the RESTgym
+repository and the five APIs that REST League 2027 announced for its
+benchmark~\cite{restleague}. Together they have \NOpsTotal operations
+(Table~\ref{tab:parser}). For \rqref{3} we need running APIs. We select
+APIs with the following criteria:
 \begin{enumerate}
-  \item \todo{criterion, with the reason};
+  \item it is one of the five known REST League 2027 APIs, so the result
+    matters for the competition;
+  \item it runs from the released jar in a container that we can restart
+    from a fresh state before every run, so runs do not affect each other;
+  \item it answers requests without the authentication proxy of RESTgym, so
+    our runner can talk to it directly.
 \end{enumerate}
+Pet-clinic (\NPetclinicOps operations, in-memory database) and
+gestao-hospital (\NGestaohospitalOps operations, MongoDB) meet all three.
+Flight-search expects a login token that RESTgym adds through a proxy
+script, kafka-rest-proxy needs a Kafka broker, and notebook-manager needs a
+MySQL server. We did not set these up in the time available.
 
 \subsection{Baselines}
 \label{sec:baselines}
-%% description list; each baseline: what it is, why it is a fair comparison.
+We compare four configurations. Each adds one part of \tool to the previous
+one, so the difference between two neighbours is the effect of that part.
 \begin{description}
-  \item[Default.] \todo{}
+  \item[Baseline.] Random values that follow only the schema \texttt{type}
+    and \texttt{enum}, such as eight random letters for a string, an integer
+    from 0 to 1{,}000, and one item per array. This is what a simple
+    schema-based random tester sends. It sees the same parsed operations as
+    \tool and fills the same parameters.
+  \item[+Values.] The value generator of \tool (Step~3), with no id reuse.
+  \item[+Pool.] +Values, and ids reused through the resource pool (Step~4).
+  \item[+Order (full).] +Pool, and the operation order of Step~2. All other
+    configurations use the order of the specification file.
 \end{description}
+All four use the same runner, the same budget, the same seeds, and a freshly
+started API. The runner and the pool are small stand-ins for the team's
+engine (Section~\ref{sec:threats}), the same for every configuration.
 
 \subsection{Measurements}
 \begin{description}
-  \item[\rqref{1}.] \todo{What exactly is measured.}
+  \item[\rqref{1}.] Per specification: operations found, compared with the
+    method entries in the file; \texttt{\$ref} entries left after parsing;
+    median parse time of five runs.
+  \item[\rqref{2}.] We generate 50 \mode{VALID} requests per operation with
+    each generator and fixed seeds. An \emph{input} is one sent path or query
+    parameter, or one request body. An input \emph{conforms} when it
+    satisfies every keyword of its schema that our checker understands:
+    \texttt{type}, \texttt{enum}, \texttt{required}, \texttt{pattern},
+    length and range limits, and the formats \texttt{date},
+    \texttt{date-time}, \texttt{email} and \texttt{uuid}.
+  \item[\rqref{3}.] Per run: $|\Reached|$ (Equation~\ref{eq:reached}) and
+    $|\Faults|$ (Equation~\ref{eq:faults}). We report the mean and standard
+    deviation over \NReps runs, and the union of \Faults over all runs.
+  \item[\rqref{4}.] Mean time to generate one request; and the requests the
+    runner spent in its nominal phase, which ends when every operation was
+    either reached or tried ten times.
 \end{description}
 
 \subsection{Setup}
-%% Machine, OS, compiler/tool versions, time limits, repetitions.
-\todo{Machine, versions, repetitions.}
+\label{sec:setup}
+All runs used one laptop (Intel Core 7 240H, 16 logical CPUs, 8~GB of memory
+for Docker, Linux 6.18 under WSL2), Python 3.14.4 and Docker 29.8.2. The APIs
+ran in the \texttt{eclipse-temurin:17-jre} image from the RESTgym API
+repositories at commits \texttt{e8250db} (pet-clinic) and \texttt{d4cb6c7}
+(gestao-hospital); gestao-hospital used \texttt{mongo:6} with the seed data
+of its repository. Every run had a budget of 20 requests per operation
+(\NPetclinicBudget for pet-clinic, \NGestaohospitalBudget for
+gestao-hospital). The runner first makes two nominal passes over the
+operations: each operation gets up to five \mode{VALID} requests per pass
+and stops at its first 2XX. The rest of the budget goes to error requests,
+round-robin over the operations, alternating \mode{BOUNDARY} and
+\mode{INVALID} for \tool and the usual random values for the baseline. We
+ran each configuration \NReps times with seeds 1000 to 1004.
 
-\subsection{\rqref{1}: \todo{Short question}}
+\subsection{\rqref{1}: Reading Real Specifications}
 \label{sec:rq1}
-\todo{Table/figure first, then text that reads it.}
+
+\input{tables/parser}
+
+Table~\ref{tab:parser} shows that \tool found every operation in every
+specification and left no reference unresolved. The specifications use
+references heavily: \NRefsTotal \texttt{\$ref} entries in total, and
+\NRefsMax in \NRefsMaxApi alone, which also has most of the \NAllofTotal
+\texttt{allOf} schemas.
 
 \begin{observation}
-\label{obs:first}
-\todo{One claim, with the number that supports it.}
+\label{obs:parse}
+\tool parsed all \NSpecs specifications, with \NOpsTotal operations and
+\NRefsTotal references, and left \NRefsLeft references unresolved.
+\end{observation}
+
+The set has a gap. None of the \NSpecs specifications contains a recursive
+schema (we counted \NRecursiveTotal), so on real data the cycle rule of
+Step~1 never fired. It is covered only by the small test specifications.
+
+\subsection{\rqref{2}: Values That Follow the Schema}
+\label{sec:rq2}
+The last two columns of Table~\ref{tab:parser} compare the two generators.
+\tool kept \NConfTool of its \NConfToolInputs inputs inside their schema.
+The baseline kept \NConfBaseline, and fell below 100\% in
+\NConfBaselineBelow of the \NSpecs specifications, down to
+\NConfBaselineMin for \NConfBaselineWorstApi. The baseline's \NViolBaseline
+violations were almost all of two kinds that type-only generation cannot
+meet: \NViolBaselineFormatPattern of them were a \texttt{format} (mostly
+\texttt{date} and \texttt{date-time}) or a \texttt{pattern}.
+
+\begin{observation}
+\label{obs:conform}
+\tool's \mode{VALID} inputs followed their schema in \NConfTool of cases,
+against \NConfBaseline for the type-only baseline;
+\NViolBaselineFormatPattern of the baseline's violations were formats or
+patterns.
+\end{observation}
+
+\subsection{\rqref{3}: Operations Reached on Running APIs}
+\label{sec:rq3}
+
+\input{tables/live}
+
+Table~\ref{tab:live} shows the four configurations. On pet-clinic, the
+baseline reached \NPetclinicBaselineOps of \NPetclinicOps operations on
+average (\NPetclinicBaselineCov). The value generator alone raised this to
+\NPetclinicValuesOps (\NPetclinicValuesCov), and id reuse to
+\NPetclinicValuesPlusPoolOps (\NPetclinicValuesPlusPoolCov). On
+gestao-hospital, the baseline reached \NGestaohospitalBaselineOps of
+\NGestaohospitalOps operations (\NGestaohospitalBaselineCov), +Values
+\NGestaohospitalValuesOps (\NGestaohospitalValuesCov), and +Pool
+\NGestaohospitalValuesPlusPoolOps (\NGestaohospitalValuesPlusPoolCov).
+
+\begin{observation}
+\label{obs:values}
+Schema-aware values alone raised the operations reached from
+\NPetclinicBaselineCov to \NPetclinicValuesCov on pet-clinic and from
+\NGestaohospitalBaselineCov to \NGestaohospitalValuesCov on
+gestao-hospital.
+\end{observation}
+
+\begin{observation}
+\label{obs:pool}
+Reusing ids from earlier responses raised the operations reached further, to
+\NPetclinicValuesPlusPoolCov on pet-clinic and
+\NGestaohospitalValuesPlusPoolCov on gestao-hospital.
+\end{observation}
+
+The operation order of Step~2 did not reach more operations: the full
+configuration reached \NPetclinicFullOps operations on pet-clinic and
+\NGestaohospitalFullOps on gestao-hospital, within one standard deviation of
++Pool. It did spend fewer nominal requests on pet-clinic
+(\NPetclinicFullNominal against \NPetclinicValuesPlusPoolNominal), because
+creators run before the operations that need their ids.
+
+\begin{observation}
+\label{obs:order}
+Once ids are reused, dependency order added no reached operations on either
+API; on pet-clinic it saved nominal requests (\NPetclinicFullNominal instead
+of \NPetclinicValuesPlusPoolNominal).
+\end{observation}
+
+\paragraph{The motivating operation.} Over the \NReps baseline runs on
+pet-clinic, the runner sent \NMotivBaselineRequests requests to
+\texttt{POST /owners/\{ownerId\}/pets}. All \NMotivBaselineServer returned
+500 and none created a pet. The full configuration created a pet in
+\NMotivFullRunsOk of \NReps runs.
+
+\paragraph{Unique 5XX responses.} The configurations with \tool found far
+more unique 5XX responses than the baseline: \NPetclinicFullFaults per run
+on pet-clinic against \NPetclinicBaselineFaults, and
+\NPetclinicFullFaultsUnion against \NPetclinicBaselineFaultsUnion over all
+runs. This comparison is not between equals. The baseline has no error
+mode, while \tool spends the rest of its budget on \mode{BOUNDARY} and
+\mode{INVALID} requests, and most of the extra 5XX responses come from them
+(Section~\ref{sec:discussion}).
+
+\begin{observation}
+\label{obs:faults}
+With the same budget, the full configuration produced
+\NPetclinicFullFaultsUnion unique 5XX responses on pet-clinic over \NReps
+runs, against \NPetclinicBaselineFaultsUnion for the baseline, and
+\NGestaohospitalFullFaultsUnion against \NGestaohospitalBaselineFaultsUnion
+on gestao-hospital.
+\end{observation}
+
+\subsection{\rqref{4}: Cost}
+\label{sec:rq4}
+Parsing took at most \NParseMsMax~ms per specification
+(Table~\ref{tab:parser}). Generating one request took
+\NGenUsMedian~$\mu$s at the median over the \NSpecs specifications and
+\NGenUsMax~$\mu$s at most, for market, the specification with the most
+\texttt{pattern} keywords. Both are small next to one
+HTTP round trip to a local API. In requests, \tool makes the nominal phase
+shorter, because fewer requests are rejected: on pet-clinic it fell from
+\NPetclinicBaselineNominal requests for the baseline to
+\NPetclinicFullNominal for the full configuration, which leaves more of the
+budget for error requests.
+
+\begin{observation}
+\label{obs:cost}
+\tool generated a request in \NGenUsMedian~$\mu$s at the median and cut the
+nominal phase on pet-clinic from \NPetclinicBaselineNominal to
+\NPetclinicFullNominal requests.
 \end{observation}

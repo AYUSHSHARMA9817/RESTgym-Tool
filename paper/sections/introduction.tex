@@ -1,44 +1,117 @@
 \section{Introduction}
 \label{sec:intro}
-%% Paragraph plan (each paragraph = one job; keep to this order):
-%%  P1  Concrete scenario the reader knows: "Suppose you want to ...".
-%%      State what existing tools need or do, with citations.
-%%  P2  The first/known problem and who already works on it (cite).
-%%      End with where they stop: "These tools stop when ...".
-%%  P3  OUR problem, in plain words: "We focus on a second problem that
-%%      starts where they stop: ...". Why it is silent/dangerous.
-%%  P4  A real example with exact numbers, pointing to a figure
-%%      (Figure~\ref{fig:motivating}). Then "This is not a single case." + count.
-%%  P5  Prior work on the closest idea and its precise gap
-%%      ("However, they need ...", "Their method depends on ...").
-%%  P6  "We bring/We present \tool ..." + numbered steps (enumerate), each
-%%      step one sentence, each pointing to its section. Then list outputs.
-%%  P7  First results with numbers, and one lesson learned.
-%%  Contributions (itemize), each item ending in (Section~\ref{...}).
 
-\todo{P1: scenario.}
+Suppose you want to test a REST API that you did not write. You have its
+OpenAPI specification~\cite{openapi}, which lists every operation and the
+shape of its inputs, and you have the running service. Black-box testing
+tools such as RESTler~\cite{restler}, RestTestGen~\cite{resttestgen} and
+Schemathesis~\cite{schemathesis} take exactly these two things and send
+thousands of requests, looking for server errors. REST League
+2027~\cite{restleague} turns this into a competition: each tool gets one
+hour per API and is scored on unique server errors (5XX responses),
+operations that returned a success (2XX), and code coverage.
 
-\focus{\textbf{Motivating example.} Give one \emph{real} case (a bug report,
-  a CVE, a failing test, a slow build, a measured number) that shows the
-  problem is real and worth solving. Point to Figure~\ref{fig:motivating},
-  use exact numbers, then add one sentence proving it is not a one-off
-  (``This is not a single case.'' + a count). This is graded: no toy or
-  imaginary example.}
+Most of the work in the field goes into deciding \emph{which} request to send
+next: search strategies, reinforcement learning, and models of the API's
+state~\cite{evomaster,arat-rl,morest,deeprest}. These methods all assume that
+the tool can build a request that the API accepts. When it cannot, the
+request never gets past the API's first checks, and the strategy has nothing
+to work with.
+
+We focus on that first step: turning the specification into requests that
+the API accepts. It looks easy, because the specification states the type of
+every input. It is not, because the API checks more than the type. A date
+must parse, an id must name a resource that exists, and that resource must
+have been created first. A tester that only follows the types gets a stream
+of rejections, and some of them look like success: a 500 response counts as
+a server error even when the only cause is a badly formed date.
+
+Figure~\ref{fig:motivating} shows a real case from pet-clinic, one of the
+REST League APIs. The operation \texttt{POST /owners/\{ownerId\}/pets} adds a
+pet to an owner. A generator that follows only the schema types sent a random
+string as the birth date and a random owner id. The API failed with a 500
+while parsing the date, before it even looked for owner~331. This is not a
+single case. Over \NReps runs, a type-only generator sent
+\NMotivBaselineRequests requests to this operation; all
+\NMotivBaselineServer returned 500 and none created a pet. Across the whole
+API, it reached only \NPetclinicBaselineCov of the operations. In
+\NSpecsWithoutExamples of the \NSpecs specifications we studied, the authors
+gave no example value that a tool could copy.
+
+\begin{figure}[t]
+\begin{lstlisting}[numbers=none,escapechar=@,basicstyle=\ttfamily\scriptsize]
+# Specification (resolved): body of POST /petclinic/api/owners/{ownerId}/pets
+{ "name": {"type": "string"},
+  "birthDate": {"type": "string", "format": "date"},  @\textbf{<- not just any string}@
+  "type": {"id": {"type": "integer"}, "name": {"type": "string"}} }
+
+# Type-only generator                     # @\tool@ (values + ids from earlier responses)
+POST .../owners/331/pets                  POST .../owners/11/pets
+{"name": "jzPdeIgx",                      {"name": "Leo",
+ "birthDate": "LdGncfBA",                  "birthDate": "2010-09-07",
+ "type": {"id": 970, "name": "epfJBdKh"}}  "type": {"id": 1, "name": "cat"}}
+-> 500 "JSON parse error: Cannot          -> 201 Created
+   deserialize value of type                 {"id": 14, "ownerId": 11, ...}
+   java.time.LocalDate from String
+   'LdGncfBA' ..."
+\end{lstlisting}
+\caption{\textcolor{red}{[Motivating example --- graded]} A real exchange with
+  pet-clinic. Following only the schema types, a generator sends a random
+  birth date, and the API fails while parsing it; over \NReps runs, all
+  \NMotivBaselineRequests such requests returned 500 and none created a pet.
+  \tool sends a real date, an existing owner and an existing pet type, and
+  the pet is created. Requests and responses are copied from
+  \texttt{data/motivating.json}, trimmed with \texttt{...}.}
+\label{fig:motivating}
+\end{figure}
+
+Earlier work has attacked parts of this problem. ARTE~\cite{arte} and
+NLP2REST~\cite{nlp2rest} look outside the schema, in knowledge bases or in
+the text of the documentation, to find realistic values. RESTler and
+RestTestGen infer which operation creates the resource another needs.
+However, these parts are built into complete tools, so it is hard to tell
+how much each one adds. A competitor who has a few weeks must decide what to
+build first.
+
+We present \tool, the part of our REST League tool that turns a
+specification into requests. It works in four steps:
+\begin{enumerate}
+  \item it parses the specification and resolves every reference, merged
+    schema and recursive schema (Section~\ref{sec:step1});
+  \item it orders the operations so that those that create a resource come
+    before those that use it (Section~\ref{sec:step2});
+  \item it fills each request with values taken from examples, formats,
+    regular-expression patterns and parameter names, in a valid mode for
+    reaching operations and two error modes for finding faults
+    (Section~\ref{sec:step3});
+  \item it reuses real ids from earlier responses through the engine's
+    resource pool (Section~\ref{sec:step4}).
+\end{enumerate}
+\tool uses only the Python standard library, no network and no language
+model, so it fits the competition's sandbox.
+
+We evaluated \tool on all \NSpecs specifications of the RESTgym
+APIs~\cite{restgym} and on two REST League APIs running live. \tool parsed
+every specification with no reference left unresolved, and \NConfTool of its
+generated values followed their schema, against \NConfBaseline for a
+type-only generator. With the same budget, the operations reached rose from
+\NPetclinicBaselineCov to \NPetclinicFullCov on pet-clinic and from
+\NGestaohospitalBaselineCov to \NGestaohospitalFullCov on gestao-hospital.
+Taking each part away in turn showed where the gain comes from: values and
+id reuse carried it, while operation order added no reached operation on
+either API. The lesson for a team with little time is to get the values and
+the ids right first.
 
 \paragraph{Contributions.}
 \begin{itemize}
-  \item We define \todo{concept} (Section~\ref{sec:problem}).
-  \item We present \tool, which \todo{what} (Section~\ref{sec:approach}).
-  \item We evaluate \tool on \todo{n} \todo{subjects} (Section~\ref{sec:eval}).
-  \item We release the tool and all data (Section~\ref{sec:data}).
+  \item We state the input side of black-box REST testing as reaching
+    operations under a request budget (Section~\ref{sec:problem}).
+  \item We present \tool, a small, dependency-free component that parses
+    OpenAPI specifications, generates values in three modes, reuses ids and
+    orders operations (Section~\ref{sec:approach}).
+  \item We measure each part on its own, on \NSpecs specifications and two
+    live APIs, and find that values and id reuse matter most
+    (Section~\ref{sec:eval}).
+  \item We release the code, the scripts and every raw result
+    (Section~\ref{sec:data}).
 \end{itemize}
-
-\begin{figure}[t]
-\begin{lstlisting}[numbers=none,escapechar=@]
-// the real code / input that shows the problem, trimmed with ...
-\end{lstlisting}
-\caption{\textcolor{red}{[Motivating example --- graded]} A real case of the
-  problem. \todo{The caption states the lesson, with the exact number, so a
-  reader who reads only captions gets it.}}
-\label{fig:motivating}
-\end{figure}
