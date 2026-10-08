@@ -1,0 +1,13 @@
+# Standalone image for local testing (build context = this directory).
+# Bundles the 15 sample specs so you can run without RESTgym.
+FROM python:3.12-slim
+
+RUN mkdir -p /tool /specifications
+COPY . /tool/
+RUN pip install --no-cache-dir -r /tool/requirements.txt
+# bundle the sample specs as /specifications/<API>-openapi.json
+COPY specs/ /specifications/
+
+ENV PYTHONUNBUFFERED=1
+WORKDIR /tool
+CMD sh /tool/config.sh && while true; do python3 -m restleague.main; done
