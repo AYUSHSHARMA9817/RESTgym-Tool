@@ -1,59 +1,86 @@
-# CS-5187 — Term Project
+# Black-box REST API testing tool — REST League 2027
 
-This repository is your starting point for the CS-5187 term project. It has two
-parts:
+An automated, black-box testing tool for RESTful APIs, built for
+[REST League 2027](https://seunivr.github.io/RestLeague/2027/) (ICSE 2027
+Competition Track) and this CS-5187 term project. Given only an API's OpenAPI
+specification and its endpoint, the tool sends HTTP requests to **maximise
+operation coverage** (endpoints that return 2XX) and **unique 5XX faults**
+within a time budget — no access to source code, schema, or logs. It is fully
+automated, REST-specific, containerised for RESTgym, and uses no LLM.
+
+## Repository layout
 
 ```
-paper/    the report, in FSE (ACM acmsmall) LaTeX format  ← write here
-src/      your code (tool, scripts, experiments, data)     ← code here
+src/      the tool (RESTgym-ready) + tests + sample specs      ← code
+paper/    the solution/report paper (LaTeX, ACM format)        ← report
 ```
 
-Your project can be in **any** area of the course: static analysis, dynamic
-analysis / testing, or software engineering more broadly (empirical studies,
-program repair, refactoring, build systems, …). The template does not assume a
-particular topic.
+- Tool details and build/run instructions: [`src/README.md`](src/README.md) and
+  [`src/SUBMISSION.md`](src/SUBMISSION.md).
 
-## What to do
+## How it works
 
-1. **Put your code in `src/`.** Everything that produces a result or a number in
-   your paper goes there, with a note on how to build and run it. See
-   [`src/README.md`](src/README.md).
-2. **Write your report in `paper/`.** Edit the section files in
-   `paper/sections/`. Build the PDF with:
-   ```sh
-   cd paper
-   make          # builds paper/main.pdf
-   make check    # checks for leftover TODOs, banned words, undefined refs, page limit
-   ```
-3. **Address the five graded parts.** In `paper/`, each is flagged with a red
-   `FOCUS` box that says what it must contain. Write the section, then **delete
-   that `\focus{...}` line** (keep the section). The graded parts are:
+```
+OpenAPI spec ──▶ parse & resolve ($ref/allOf) ──▶ order operations ──▶ engine
+                 (list of Operations)             (creators first,    (budgeted loop)
+                                                    DELETE last)
+```
 
-   | Part | Where |
-   |------|-------|
-   | Motivating example | `sections/introduction.tex` |
-   | Workflow | `sections/approach.tex` |
-   | Research questions | `sections/evaluation.tex` |
-   | Related work | `sections/related.tex` |
-   | Threats to validity | `sections/threats.tex` |
+- **Spec → requests.** The specification is parsed into operations with every
+  `$ref` resolved; operations are ordered so resources are created before they
+  are read, updated, or deleted. A value generator fills parameters and bodies
+  in three modes — `VALID`, `BOUNDARY`, `INVALID`.
+- **Learn & reuse ids.** After every 2XX the engine harvests ids and objects
+  from the response (body, `Location` header) into a pool; the generator reuses
+  them so nested routes like `POST /owners/{ownerId}/pets` are reachable instead
+  of returning 404.
+- **Coverage, then fuzz.** Phase 1 drives nominal requests to cover every
+  operation; phase 2 mutates known-good requests (missing/boundary/wrong-type
+  fields, malformed bodies, stale ids) and runs a systematic injection sweep,
+  steered by a bandit toward operations that crash or stay uncovered. A
+  slow/timeout back-off keeps one slow endpoint from draining the budget.
 
-4. **Finish clean.** A submittable report has **zero** red `\focus` and **zero**
-   `\todo`, and `make check` passes. Use
-   [`paper/CHECKLIST.md`](paper/CHECKLIST.md) before you submit.
+## Quick start
 
-## Rules that matter (see `paper/STYLE.md`)
-
-- Every number in the paper comes from a real run of your code in `src/` — never
-  invented or rounded from memory.
-- The motivating example must be **real**, with exact numbers.
-- Cite only papers you have verified; fabricated citations are not accepted.
-- Write in plain, simple English.
-
-## Submitting
-
-Commit both your `src/` code and your `paper/` sources (not the built PDF — it is
-gitignored). Make sure the repository builds from a clean checkout:
+Local (no Docker):
 
 ```sh
-cd paper && make
+cd src
+pip install -r requirements.txt
+python -m pytest tests/test_engine.py -q      # engine test suite (18 tests)
+python -m tests.check_parser                  # spec parser over 15 sample specs
+# run the full tool against any live API (1-minute budget):
+HOST=127.0.0.1 PORT=8080 API=pet-clinic TIME_BUDGET=1 \
+  SPEC=specs/pet-clinic-openapi.json python -m restleague.main
 ```
+
+Docker (standalone image, bundles the sample specs):
+
+```sh
+cd src
+docker build -t restleague-tool -f Dockerfile.standalone .
+docker run --rm --network host \
+  -e HOST=127.0.0.1 -e PORT=8080 -e API=pet-clinic -e TIME_BUDGET=1 restleague-tool
+```
+
+RESTgym runs the tool by setting `HOST`, `PORT`, `API` and `TIME_BUDGET` (minutes)
+and mounting the spec at `/specifications/<API>-openapi.json`; see
+`src/SUBMISSION.md` for the compliant `Dockerfile`, `config.sh` and
+`restgym-tool-config.yml`.
+
+## Status
+
+- Spec parser: 15/15 sample specs parse with 0 unresolved `$ref`.
+- Engine test suite: 18/18 pass.
+- End-to-end on a live API: full operation coverage with multiple distinct 5XX
+  faults at a few hundred requests/second on a single core.
+
+## The paper (`paper/`)
+
+```sh
+cd paper
+make          # builds paper/main.pdf
+make check    # checks TODOs, page limit, undefined refs
+```
+
+Every number in the paper comes from a real run of the code in `src/`.
