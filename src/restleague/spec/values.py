@@ -1,4 +1,4 @@
-"""Owner: A. Schema -> concrete request values.
+"""Schema -> concrete request values.
 
 VALID    : values that should pass the API's validation (aim: 2XX, operation coverage).
 BOUNDARY : structurally valid, but values at the edges of their constraints.
@@ -35,7 +35,7 @@ MAX_ITEMS = 50
 # Public API
 # ---------------------------------------------------------------------------
 def generate_request(op: Operation, pool: Any = None, mode: Mode = Mode.VALID) -> Request:
-    """`pool` is B's ResourcePool (or None): pool.lookup(name, schema, op) -> real value or None."""
+    """`pool` is the engine's ResourcePool (or None): pool.lookup(name, schema, op) -> real value or None."""
     rb = op.request_body
     req = Request(method=op.method, path=op.path, op_key=op.key,
                   content_type=rb.content_types[0] if rb else None)

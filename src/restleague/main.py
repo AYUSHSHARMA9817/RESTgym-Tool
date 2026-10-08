@@ -1,4 +1,4 @@
-"""Entry point (owner: C). Reads RESTgym env vars, wires spec (A) + engine (B)."""
+"""Entry point. Reads RESTgym env vars, wires the spec parser and the engine."""
 import os
 
 from restleague.spec.parser import parse_spec

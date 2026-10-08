@@ -1,18 +1,18 @@
-"""Shared contract between Person A (spec), Person B (engine) and Person C (main).
+"""Shared data types for the tool.
 
-Change only with agreement from all three.
+These dataclasses are the common interface between the spec parser/generator,
+the execution engine, and the entrypoint. Keep them stable; changing a field
+affects every part.
 
 Flow:
-    ops = parse_spec(path)                 # A
-    ops = order_operations(ops)            # A
-    run(ops, budget_seconds, base_url)     # B  (calls A's generate_request)
+    ops = parse_spec(path)
+    ops = order_operations(ops)
+    run(ops, budget_seconds, base_url)      # the engine; calls generate_request
 
-A's generator signature:
-    generate_request(op: Operation, pool: ResourcePool, mode: Mode) -> Request
-
-Inside the generator, A should call ``pool.lookup(param_name, schema, op)``
-for path/query parameters and id-like body fields, and use the returned value
-when it is not ``None``.
+generate_request(op: Operation, pool: ResourcePool, mode: Mode) -> Request
+Inside the generator, call ``pool.lookup(param_name, schema, op)`` for
+path/query parameters and id-like body fields, and use the returned value when
+it is not ``None``.
 """
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 """A small resource pool for the evaluation runner. It implements the interface that
-Person B's engine offers to the generator: lookup(name, schema, op) and lookup_object(resource).
+The engine offers to the generator: lookup(name, schema, op) and lookup_object(resource).
 It remembers ids and objects seen in 2XX responses, keyed by deps.resource_key()."""
 import random
 from typing import Any, Optional

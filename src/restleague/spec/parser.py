@@ -1,4 +1,4 @@
-"""Owner: A. OpenAPI 3 spec file -> list[Operation] with every $ref resolved."""
+"""OpenAPI 3 spec file -> list[Operation] with every $ref resolved."""
 import json
 from typing import Any, Optional
 from urllib.parse import urlparse

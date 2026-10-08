@@ -16,8 +16,8 @@ an OpenAPI specification into requests:
 | 4 Reuse ids | `restleague/spec/values.py` | asks the engine's pool: `pool.lookup(name, schema, op)`, `pool.lookup_object(resource)` |
 
 The shared types are in `restleague/models.py` (the team's common interface;
-see `docs/INTERFACE_for_personA.md`). `restleague/main.py` and
-`restleague/engine/strategy.py` are placeholders for the parts other team members own.
+see `docs/INTERFACE.md`). `restleague/main.py` and
+`restleague/engine/strategy.py` are placeholders for the engine and entrypoint.
 
 ## Layout
 
@@ -26,7 +26,7 @@ restleague/        the component (models, spec/parser.py, spec/deps.py, spec/val
 tests/             parser ladder, real-spec checks, value checks, pool check
 specs/             the 15 OpenAPI specifications used (from the RESTgym API repositories)
 eval/              evaluation: baseline generator, schema checker, pool, HTTP, runners, summary
-docs/              team plan and the interface agreed with the engine owner
+docs/              team plan and the engine interface
 ```
 
 ## Requirements (exact versions used for the report)

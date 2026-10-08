@@ -1,4 +1,4 @@
-"""Owner: A. Producer/consumer analysis + operation ordering.
+"""Producer/consumer analysis + operation ordering.
 
 Resources are identified by a normalized key such as "ownerid":
   POST /owners                      produces "ownerid"
