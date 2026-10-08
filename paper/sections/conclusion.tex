@@ -10,10 +10,10 @@ its requests to add a pet failed while parsing a random date.
 We presented \tool, which parses an OpenAPI specification, generates values
 from examples, formats, patterns and names, reuses real ids from earlier
 responses, and orders operations by their dependencies. It parsed all
-\NSpecs specifications we tried, kept \NConfTool of its generated values
-inside their schema against \NConfBaseline for a type-only generator, and
+\NSpecs specifications we tried. It kept \NConfTool of its generated values
+inside their schema, against \NConfBaseline for a type-only generator. It
 raised the operations reached from \NPetclinicBaselineCov to
 \NPetclinicFullCov on pet-clinic and from \NGestaohospitalBaselineCov to
 \NGestaohospitalFullCov on gestao-hospital with the same request budget.
-Values and id reuse gave this gain; operation order added no reached
-operation.
+Values and id reuse gave this gain; operation order changed it by less than
+one operation.

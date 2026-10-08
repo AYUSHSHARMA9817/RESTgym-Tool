@@ -1,0 +1,405 @@
+{
+ "gestao_dependencies": {
+  "GET /v1/hospitais/": {
+   "produces": [],
+   "consumes": []
+  },
+  "POST /v1/hospitais/": {
+   "produces": [
+    "hospitaiid"
+   ],
+   "consumes": []
+  },
+  "GET /v1/hospitais/maisProximo": {
+   "produces": [],
+   "consumes": []
+  },
+  "GET /v1/hospitais/{hospital_id}": {
+   "produces": [],
+   "consumes": [
+    "hospitalid"
+   ]
+  },
+  "PUT /v1/hospitais/{hospital_id}": {
+   "produces": [],
+   "consumes": [
+    "hospitalid"
+   ]
+  },
+  "DELETE /v1/hospitais/{hospital_id}": {
+   "produces": [],
+   "consumes": [
+    "hospitalid"
+   ]
+  },
+  "GET /v1/hospitais/{hospital_id}/estoque": {
+   "produces": [],
+   "consumes": [
+    "hospitalid"
+   ]
+  },
+  "POST /v1/hospitais/{hospital_id}/estoque": {
+   "produces": [
+    "estoqueid"
+   ],
+   "consumes": [
+    "hospitalid"
+   ]
+  },
+  "GET /v1/hospitais/{hospital_id}/estoque/{produto_id}": {
+   "produces": [],
+   "consumes": [
+    "hospitalid",
+    "produtoid"
+   ]
+  },
+  "PUT /v1/hospitais/{hospital_id}/estoque/{produto_id}": {
+   "produces": [],
+   "consumes": [
+    "hospitalid",
+    "produtoid"
+   ]
+  },
+  "DELETE /v1/hospitais/{hospital_id}/estoque/{produto_id}": {
+   "produces": [],
+   "consumes": [
+    "hospitalid",
+    "produtoid"
+   ]
+  },
+  "GET /v1/hospitais/{hospital_id}/hospitaisProximos": {
+   "produces": [],
+   "consumes": [
+    "hospitalid"
+   ]
+  },
+  "GET /v1/hospitais/{hospital_id}/pacientes": {
+   "produces": [],
+   "consumes": [
+    "hospitalid"
+   ]
+  },
+  "POST /v1/hospitais/{hospital_id}/pacientes/checkin": {
+   "produces": [
+    "checkinid"
+   ],
+   "consumes": [
+    "hospitalid"
+   ]
+  },
+  "POST /v1/hospitais/{hospital_id}/pacientes/checkout": {
+   "produces": [
+    "checkoutid"
+   ],
+   "consumes": [
+    "hospitalid"
+   ]
+  },
+  "GET /v1/hospitais/{hospital_id}/pacientes/{patientId}": {
+   "produces": [],
+   "consumes": [
+    "hospitalid",
+    "patientid"
+   ]
+  },
+  "PUT /v1/hospitais/{hospital_id}/pacientes/{patientId}": {
+   "produces": [],
+   "consumes": [
+    "hospitalid",
+    "patientid"
+   ]
+  },
+  "GET /v1/hospitais/{hospital_id}/proximidades": {
+   "produces": [],
+   "consumes": [
+    "hospitalid"
+   ]
+  },
+  "GET /v1/hospitais/{id}/leitos": {
+   "produces": [],
+   "consumes": [
+    "hospitaiid"
+   ]
+  },
+  "POST /v1/hospitais/{id}/transferencia/{productId}": {
+   "produces": [],
+   "consumes": [
+    "hospitaiid",
+    "productid"
+   ]
+  }
+ },
+ "gestao_post_hospital_schema": {
+  "type": "object",
+  "properties": {
+   "address": {
+    "type": "string"
+   },
+   "availableBeds": {
+    "type": "integer",
+    "format": "int32"
+   },
+   "beds": {
+    "type": "integer",
+    "format": "int32"
+   },
+   "id": {
+    "type": "string"
+   },
+   "latitude": {
+    "type": "string"
+   },
+   "longitude": {
+    "type": "string"
+   },
+   "name": {
+    "type": "string"
+   }
+  }
+ },
+ "gestao_post_hospital": [
+  {
+   "method": "POST",
+   "path": "/v1/hospitais/",
+   "path_params": {},
+   "body": {
+    "address": "116 Main Street",
+    "availableBeds": 65,
+    "beds": 60,
+    "latitude": "gamma97",
+    "longitude": "gamma93",
+    "name": "Grace"
+   },
+   "status": 200,
+   "response": {
+    "id": "6ac76f91a2634d0001b9d8d8",
+    "name": "Grace",
+    "address": "116 Main Street",
+    "beds": 60,
+    "availableBeds": 65,
+    "longitude": "-71.0638479",
+    "latitude": "42.3744019"
+   }
+  },
+  {
+   "method": "POST",
+   "path": "/v1/hospitais/",
+   "path_params": {},
+   "body": {
+    "address": "4 Main Street",
+    "availableBeds": 30,
+    "beds": 76,
+    "latitude": "alpha797",
+    "longitude": "zeta606",
+    "name": "Diana"
+   },
+   "status": 200,
+   "response": {
+    "id": "6ac76f94a2634d0001b9d8da",
+    "name": "Diana",
+    "address": "4 Main Street",
+    "beds": 76,
+    "availableBeds": 30,
+    "longitude": "151.1132435",
+    "latitude": "-33.9275588"
+   }
+  },
+  {
+   "method": "POST",
+   "path": "/v1/hospitais/",
+   "path_params": {},
+   "body": {
+    "address": "22 Main Street",
+    "availableBeds": 70,
+    "beds": 10,
+    "latitude": "omega323",
+    "longitude": "omega31",
+    "name": "Bob"
+   },
+   "status": 200,
+   "response": {
+    "id": "6ac76f97a2634d0001b9d8dc",
+    "name": "Bob",
+    "address": "22 Main Street",
+    "beds": 10,
+    "availableBeds": 70,
+    "longitude": "150.9077571",
+    "latitude": "-33.7691123"
+   }
+  }
+ ],
+ "gestao_post_hospital_without_id": {
+  "method": "POST",
+  "path": "/v1/hospitais/",
+  "path_params": {},
+  "body": {
+   "address": "116 Main Street",
+   "availableBeds": 65,
+   "beds": 60,
+   "latitude": "gamma97",
+   "longitude": "gamma93",
+   "name": "Grace"
+  },
+  "status": 200,
+  "response": {
+   "id": "6ac76f99a2634d0001b9d8de",
+   "name": "Grace",
+   "address": "116 Main Street",
+   "beds": 60,
+   "availableBeds": 65,
+   "longitude": "-71.0638479",
+   "latitude": "42.3744019"
+  }
+ },
+ "gestao_post_hospital_with_id": {
+  "method": "POST",
+  "path": "/v1/hospitais/",
+  "path_params": {},
+  "body": {
+   "address": "116 Main Street",
+   "availableBeds": 65,
+   "beds": 60,
+   "latitude": "gamma97",
+   "longitude": "gamma93",
+   "name": "Grace",
+   "id": "10"
+  },
+  "status": 400,
+  "response": ""
+ },
+ "gestao_put_new_hospital_no_id": {
+  "method": "PUT",
+  "path": "/v1/hospitais/{hospital_id}",
+  "path_params": {
+   "hospital_id": "6ac76f99a2634d0001b9d8de"
+  },
+  "body": {
+   "address": "116 Main Street",
+   "availableBeds": 65,
+   "beds": 60,
+   "latitude": "gamma97",
+   "longitude": "gamma93",
+   "name": "Grace"
+  },
+  "status": 200,
+  "response": {
+   "id": "6ac76f99a2634d0001b9d8de",
+   "name": "Grace",
+   "address": "116 Main Street",
+   "beds": 60,
+   "availableBeds": 65,
+   "longitude": "-71.0638479",
+   "latitude": "42.3744019"
+  }
+ },
+ "gestao_put_new_hospital_same_id": {
+  "method": "PUT",
+  "path": "/v1/hospitais/{hospital_id}",
+  "path_params": {
+   "hospital_id": "6ac76f99a2634d0001b9d8de"
+  },
+  "body": {
+   "address": "116 Main Street",
+   "availableBeds": 65,
+   "beds": 60,
+   "latitude": "gamma97",
+   "longitude": "gamma93",
+   "name": "Grace",
+   "id": "6ac76f99a2634d0001b9d8de"
+  },
+  "status": 200,
+  "response": {
+   "id": "6ac76f99a2634d0001b9d8de",
+   "name": "Grace",
+   "address": "116 Main Street",
+   "beds": 60,
+   "availableBeds": 65,
+   "longitude": "-71.0638479",
+   "latitude": "42.3744019"
+  }
+ },
+ "gestao_put_new_hospital_other_id": {
+  "method": "PUT",
+  "path": "/v1/hospitais/{hospital_id}",
+  "path_params": {
+   "hospital_id": "6ac76f99a2634d0001b9d8de"
+  },
+  "body": {
+   "address": "116 Main Street",
+   "availableBeds": 65,
+   "beds": 60,
+   "latitude": "gamma97",
+   "longitude": "gamma93",
+   "name": "Grace",
+   "id": "3"
+  },
+  "status": 200,
+  "response": {
+   "id": "6ac76f99a2634d0001b9d8de",
+   "name": "Hospital Next Butant\u00e3",
+   "address": "Av. Prof. Francisco Morato, 719 - Butant\u00e3, S\u00e3o Paulo - SP, 05513-000",
+   "beds": 32,
+   "availableBeds": 12,
+   "longitude": "-71.0638479",
+   "latitude": "42.3744019"
+  }
+ },
+ "gestao_put_seeded_hospital_other_id": {
+  "method": "PUT",
+  "path": "/v1/hospitais/{hospital_id}",
+  "path_params": {
+   "hospital_id": "1"
+  },
+  "body": {
+   "address": "116 Main Street",
+   "availableBeds": 65,
+   "beds": 60,
+   "latitude": "gamma97",
+   "longitude": "gamma93",
+   "name": "Grace",
+   "id": "3"
+  },
+  "status": 200,
+  "response": {
+   "id": "1",
+   "name": "Hospital Next Butant\u00e3",
+   "address": "Av. Prof. Francisco Morato, 719 - Butant\u00e3, S\u00e3o Paulo - SP, 05513-000",
+   "beds": 32,
+   "availableBeds": 12,
+   "longitude": "-46.6388042029871",
+   "latitude": "-23.5920091"
+  }
+ },
+ "petclinic_pet_of_owner": {
+  "method": "GET",
+  "path": "/petclinic/api/owners/{ownerId}/pets/{petId}",
+  "path_params": {
+   "ownerId": 1,
+   "petId": 1
+  },
+  "body": null,
+  "status": 200,
+  "response": {
+   "name": "Leo",
+   "birthDate": "2010-09-07",
+   "type": {
+    "name": "cat",
+    "id": 1
+   },
+   "id": 1,
+   "ownerId": 1,
+   "visits": []
+  }
+ },
+ "petclinic_pet_of_other_owner": {
+  "method": "GET",
+  "path": "/petclinic/api/owners/{ownerId}/pets/{petId}",
+  "path_params": {
+   "ownerId": 2,
+   "petId": 1
+  },
+  "body": null,
+  "status": 404,
+  "response": ""
+ }
+}

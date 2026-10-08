@@ -1,0 +1,16 @@
+api,requests,mean_us_per_request
+features-service,900,8.6
+flight-search,2000,11.9
+genome-nexus,1150,11.6
+gestao-hospital,1000,26.2
+kafka-rest-proxy,2500,17.4
+languagetool,100,22.2
+market,650,153.6
+ncs,300,11.2
+notebook-manager,250,38.9
+person-controller,600,29.8
+pet-clinic,1750,18.5
+project-tracking-system,2950,24.6
+restcountries,1100,6.2
+scs,550,10.1
+user-management,1100,18.4

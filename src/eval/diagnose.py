@@ -46,6 +46,16 @@ def main(out_dir):
     for label, b in (("without_id", body), ("with_id", {**body, "id": "10"})):
         req = Request(method="POST", path=op.path, body=b, content_type="application/json")
         out[f"gestao_post_hospital_{label}"] = record(req, send(base, req))
+    # PUT on a hospital that was just created: body without id, with the same id, with another id
+    new_id = out["gestao_post_hospital_without_id"]["response"]["id"]
+    put = ops["PUT /v1/hospitais/{hospital_id}"]
+    for label, extra in (("no_id", {}), ("same_id", {"id": new_id}), ("other_id", {"id": "3"})):
+        req = Request(method="PUT", path=put.path, path_params={"hospital_id": new_id},
+                      body={**body, **extra}, content_type="application/json")
+        out[f"gestao_put_new_hospital_{label}"] = record(req, send(base, req))
+    req = Request(method="PUT", path=put.path, path_params={"hospital_id": "1"},
+                  body={**body, "id": "3"}, content_type="application/json")
+    out["gestao_put_seeded_hospital_other_id"] = record(req, send(base, req))
     apis.stop("gestao-hospital")
 
     base = apis.start("pet-clinic")

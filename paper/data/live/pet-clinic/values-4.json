@@ -1,0 +1,347 @@
+{
+ "api": "pet-clinic",
+ "config": "values",
+ "seed": 1004,
+ "operations": 35,
+ "ops_with_2xx": 21,
+ "nominal_requests": 166,
+ "total_requests": 700,
+ "unique_5xx": 87,
+ "seconds": 4.4,
+ "per_op": {
+  "GET /petclinic/api/oops": {
+   "requests": 26,
+   "2xx": 0,
+   "4xx": 0,
+   "5xx": 26,
+   "first_2xx_at": null
+  },
+  "POST /petclinic/api/owners": {
+   "requests": 17,
+   "2xx": 9,
+   "4xx": 4,
+   "5xx": 4,
+   "first_2xx_at": 6
+  },
+  "GET /petclinic/api/owners": {
+   "requests": 17,
+   "2xx": 13,
+   "4xx": 4,
+   "5xx": 0,
+   "first_2xx_at": 7
+  },
+  "GET /petclinic/api/owners/{ownerId}": {
+   "requests": 17,
+   "2xx": 1,
+   "4xx": 9,
+   "5xx": 7,
+   "first_2xx_at": 8
+  },
+  "PUT /petclinic/api/owners/{ownerId}": {
+   "requests": 17,
+   "2xx": 1,
+   "4xx": 10,
+   "5xx": 6,
+   "first_2xx_at": 9
+  },
+  "DELETE /petclinic/api/owners/{ownerId}": {
+   "requests": 17,
+   "2xx": 1,
+   "4xx": 10,
+   "5xx": 6,
+   "first_2xx_at": 10
+  },
+  "POST /petclinic/api/owners/{ownerId}/pets": {
+   "requests": 26,
+   "2xx": 0,
+   "4xx": 16,
+   "5xx": 10,
+   "first_2xx_at": null
+  },
+  "GET /petclinic/api/owners/{ownerId}/pets/{petId}": {
+   "requests": 26,
+   "2xx": 0,
+   "4xx": 21,
+   "5xx": 5,
+   "first_2xx_at": null
+  },
+  "PUT /petclinic/api/owners/{ownerId}/pets/{petId}": {
+   "requests": 26,
+   "2xx": 0,
+   "4xx": 22,
+   "5xx": 4,
+   "first_2xx_at": null
+  },
+  "POST /petclinic/api/owners/{ownerId}/pets/{petId}/visits": {
+   "requests": 20,
+   "2xx": 1,
+   "4xx": 14,
+   "5xx": 5,
+   "first_2xx_at": 30
+  },
+  "GET /petclinic/api/pettypes": {
+   "requests": 16,
+   "2xx": 16,
+   "4xx": 0,
+   "5xx": 0,
+   "first_2xx_at": 31
+  },
+  "POST /petclinic/api/pettypes": {
+   "requests": 16,
+   "2xx": 11,
+   "4xx": 3,
+   "5xx": 2,
+   "first_2xx_at": 32
+  },
+  "GET /petclinic/api/pettypes/{petTypeId}": {
+   "requests": 25,
+   "2xx": 0,
+   "4xx": 18,
+   "5xx": 7,
+   "first_2xx_at": null
+  },
+  "PUT /petclinic/api/pettypes/{petTypeId}": {
+   "requests": 25,
+   "2xx": 0,
+   "4xx": 19,
+   "5xx": 6,
+   "first_2xx_at": null
+  },
+  "DELETE /petclinic/api/pettypes/{petTypeId}": {
+   "requests": 25,
+   "2xx": 0,
+   "4xx": 18,
+   "5xx": 7,
+   "first_2xx_at": null
+  },
+  "GET /petclinic/api/pets": {
+   "requests": 16,
+   "2xx": 16,
+   "4xx": 0,
+   "5xx": 0,
+   "first_2xx_at": 48
+  },
+  "GET /petclinic/api/pets/{petId}": {
+   "requests": 25,
+   "2xx": 0,
+   "4xx": 18,
+   "5xx": 7,
+   "first_2xx_at": null
+  },
+  "PUT /petclinic/api/pets/{petId}": {
+   "requests": 25,
+   "2xx": 0,
+   "4xx": 22,
+   "5xx": 3,
+   "first_2xx_at": null
+  },
+  "DELETE /petclinic/api/pets/{petId}": {
+   "requests": 25,
+   "2xx": 0,
+   "4xx": 18,
+   "5xx": 7,
+   "first_2xx_at": null
+  },
+  "GET /petclinic/api/visits": {
+   "requests": 16,
+   "2xx": 16,
+   "4xx": 0,
+   "5xx": 0,
+   "first_2xx_at": 64
+  },
+  "POST /petclinic/api/visits": {
+   "requests": 25,
+   "2xx": 0,
+   "4xx": 21,
+   "5xx": 4,
+   "first_2xx_at": null
+  },
+  "GET /petclinic/api/visits/{visitId}": {
+   "requests": 25,
+   "2xx": 0,
+   "4xx": 18,
+   "5xx": 7,
+   "first_2xx_at": null
+  },
+  "PUT /petclinic/api/visits/{visitId}": {
+   "requests": 25,
+   "2xx": 0,
+   "4xx": 21,
+   "5xx": 4,
+   "first_2xx_at": null
+  },
+  "DELETE /petclinic/api/visits/{visitId}": {
+   "requests": 25,
+   "2xx": 0,
+   "4xx": 19,
+   "5xx": 6,
+   "first_2xx_at": null
+  },
+  "GET /petclinic/api/specialties": {
+   "requests": 16,
+   "2xx": 16,
+   "4xx": 0,
+   "5xx": 0,
+   "first_2xx_at": 85
+  },
+  "POST /petclinic/api/specialties": {
+   "requests": 16,
+   "2xx": 11,
+   "4xx": 2,
+   "5xx": 3,
+   "first_2xx_at": 86
+  },
+  "GET /petclinic/api/specialties/{specialtyId}": {
+   "requests": 16,
+   "2xx": 1,
+   "4xx": 8,
+   "5xx": 7,
+   "first_2xx_at": 87
+  },
+  "PUT /petclinic/api/specialties/{specialtyId}": {
+   "requests": 16,
+   "2xx": 1,
+   "4xx": 10,
+   "5xx": 5,
+   "first_2xx_at": 88
+  },
+  "DELETE /petclinic/api/specialties/{specialtyId}": {
+   "requests": 16,
+   "2xx": 1,
+   "4xx": 8,
+   "5xx": 7,
+   "first_2xx_at": 89
+  },
+  "GET /petclinic/api/vets": {
+   "requests": 16,
+   "2xx": 16,
+   "4xx": 0,
+   "5xx": 0,
+   "first_2xx_at": 90
+  },
+  "POST /petclinic/api/vets": {
+   "requests": 16,
+   "2xx": 9,
+   "4xx": 1,
+   "5xx": 6,
+   "first_2xx_at": 91
+  },
+  "GET /petclinic/api/vets/{vetId}": {
+   "requests": 16,
+   "2xx": 1,
+   "4xx": 8,
+   "5xx": 7,
+   "first_2xx_at": 92
+  },
+  "PUT /petclinic/api/vets/{vetId}": {
+   "requests": 16,
+   "2xx": 1,
+   "4xx": 11,
+   "5xx": 4,
+   "first_2xx_at": 93
+  },
+  "DELETE /petclinic/api/vets/{vetId}": {
+   "requests": 16,
+   "2xx": 1,
+   "4xx": 9,
+   "5xx": 6,
+   "first_2xx_at": 94
+  },
+  "POST /petclinic/api/users": {
+   "requests": 17,
+   "2xx": 4,
+   "4xx": 5,
+   "5xx": 8,
+   "first_2xx_at": 96
+  }
+ },
+ "faults": [
+  "DELETE /petclinic/api/owners/{ownerId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "DELETE /petclinic/api/owners/{ownerId}|500|No static resource api/owners.",
+  "DELETE /petclinic/api/owners/{ownerId}|500|deleteOwner.ownerId: must be greater than or equal to <n>",
+  "DELETE /petclinic/api/pets/{petId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "DELETE /petclinic/api/pets/{petId}|500|No static resource api/pets.",
+  "DELETE /petclinic/api/pettypes/{petTypeId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "DELETE /petclinic/api/pettypes/{petTypeId}|500|No static resource api/pettypes.",
+  "DELETE /petclinic/api/pettypes/{petTypeId}|500|deletePetType.petTypeId: must be greater than or equal to <n>",
+  "DELETE /petclinic/api/specialties/{specialtyId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "DELETE /petclinic/api/specialties/{specialtyId}|500|No static resource api/specialties.",
+  "DELETE /petclinic/api/specialties/{specialtyId}|500|deleteSpecialty.specialtyId: must be greater than or equal to <n>",
+  "DELETE /petclinic/api/vets/{vetId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "DELETE /petclinic/api/vets/{vetId}|500|deleteVet.vetId: must be greater than or equal to <n>",
+  "DELETE /petclinic/api/visits/{visitId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "DELETE /petclinic/api/visits/{visitId}|500|No static resource api/visits.",
+  "GET /petclinic/api/oops|500|No static resource api/oops.",
+  "GET /petclinic/api/owners/{ownerId}/pets/{petId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "GET /petclinic/api/owners/{ownerId}/pets/{petId}|500|getOwnersPet.petId: must be greater than or equal to <n>",
+  "GET /petclinic/api/owners/{ownerId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "GET /petclinic/api/owners/{ownerId}|500|No static resource api/owners.",
+  "GET /petclinic/api/pets/{petId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "GET /petclinic/api/pets/{petId}|500|No static resource api/pets.",
+  "GET /petclinic/api/pets/{petId}|500|getPet.petId: must be greater than or equal to <n>",
+  "GET /petclinic/api/pettypes/{petTypeId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "GET /petclinic/api/pettypes/{petTypeId}|500|getPetType.petTypeId: must be greater than or equal to <n>",
+  "GET /petclinic/api/specialties/{specialtyId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "GET /petclinic/api/specialties/{specialtyId}|500|No static resource api/specialties.",
+  "GET /petclinic/api/vets/{vetId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "GET /petclinic/api/vets/{vetId}|500|No static resource api/vets.",
+  "GET /petclinic/api/visits/{visitId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "GET /petclinic/api/visits/{visitId}|500|No static resource api/visits.",
+  "POST /petclinic/api/owners/{ownerId}/pets/{petId}/visits|500|JSON parse error: Cannot deserialize value of type `java.lang.String` from Array value (token `JsonToken.START_ARRAY`)",
+  "POST /petclinic/api/owners/{ownerId}/pets/{petId}/visits|500|JSON parse error: Cannot deserialize value of type `org.springframework.samples.petclinic.rest.dto.VisitFieldsDto` from Array value (token `JsonToken.START_ARRAY`)",
+  "POST /petclinic/api/owners/{ownerId}/pets/{petId}/visits|500|JSON parse error: Unexpected character ('<s>' (code <n>)): was expecting double-quote to start field name",
+  "POST /petclinic/api/owners/{ownerId}/pets/{petId}/visits|500|addVisitToOwner.petId: must be greater than or equal to <n>",
+  "POST /petclinic/api/owners/{ownerId}/pets|500|Content-Type is not supported",
+  "POST /petclinic/api/owners/{ownerId}/pets|500|JSON parse error: Cannot coerce empty String (\"<s>\") to `org.springframework.samples.petclinic.rest.dto.PetTypeDto` value (but could if coercion was enabled using `CoercionConfig`)",
+  "POST /petclinic/api/owners/{ownerId}/pets|500|JSON parse error: Cannot construct instance of `org.springframework.samples.petclinic.rest.dto.PetTypeDto` (although at least one Creator exists): no String-argument constructor/factory method to dese",
+  "POST /petclinic/api/owners/{ownerId}/pets|500|JSON parse error: Cannot deserialize value of type `org.springframework.samples.petclinic.rest.dto.PetFieldsDto` from Array value (token `JsonToken.START_ARRAY`)",
+  "POST /petclinic/api/owners/{ownerId}/pets|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "POST /petclinic/api/owners/{ownerId}/pets|500|Required request body is missing: public org.springframework.http.ResponseEntity<org.springframework.samples.petclinic.rest.dto.PetDto> org.springframework.samples.petclinic.rest.controller.OwnerRestC",
+  "POST /petclinic/api/owners/{ownerId}/pets|500|Validation failed for classes [org.springframework.samples.petclinic.model.Pet] during persist time for groups [jakarta.validation.groups.Default, ]\nList of constraint violations:[\n\tConstraintViolatio",
+  "POST /petclinic/api/owners|500|Content-Type is not supported",
+  "POST /petclinic/api/owners|500|JSON parse error: Cannot construct instance of `org.springframework.samples.petclinic.rest.dto.OwnerFieldsDto` (although at least one Creator exists): no int/Int-argument constructor/factory method to",
+  "POST /petclinic/api/owners|500|JSON parse error: Cannot deserialize value of type `java.lang.String` from Object value (token `JsonToken.START_OBJECT`)",
+  "POST /petclinic/api/owners|500|JSON parse error: Cannot deserialize value of type `org.springframework.samples.petclinic.rest.dto.OwnerFieldsDto` from Array value (token `JsonToken.START_ARRAY`)",
+  "POST /petclinic/api/pettypes|500|Content-Type is not supported",
+  "POST /petclinic/api/pettypes|500|JSON parse error: Cannot construct instance of `org.springframework.samples.petclinic.rest.dto.PetTypeFieldsDto` (although at least one Creator exists): no int/Int-argument constructor/factory method ",
+  "POST /petclinic/api/specialties|500|Content-Type is not supported",
+  "POST /petclinic/api/specialties|500|JSON parse error: Cannot construct instance of `org.springframework.samples.petclinic.rest.dto.SpecialtyDto` (although at least one Creator exists): no int/Int-argument constructor/factory method to d",
+  "POST /petclinic/api/users|500|JSON parse error: Cannot deserialize value of type `java.lang.String` from Object value (token `JsonToken.START_OBJECT`)",
+  "POST /petclinic/api/users|500|JSON parse error: Unexpected character ('<s>' (code <n>)): was expecting double-quote to start field name",
+  "POST /petclinic/api/users|500|User must have at least a role set!",
+  "POST /petclinic/api/vets|500|Content-Type is not supported",
+  "POST /petclinic/api/vets|500|JSON parse error: Cannot coerce empty String (\"<s>\") to `org.springframework.samples.petclinic.rest.dto.SpecialtyDto` value (but could if coercion was enabled using `CoercionConfig`)",
+  "POST /petclinic/api/vets|500|JSON parse error: Cannot construct instance of `org.springframework.samples.petclinic.rest.dto.VetDto` (although at least one Creator exists): no int/Int-argument constructor/factory method to deseria",
+  "POST /petclinic/api/vets|500|JSON parse error: Cannot deserialize value of type `java.util.ArrayList<org.springframework.samples.petclinic.rest.dto.SpecialtyDto>` from String value (token `JsonToken.VALUE_STRING`)",
+  "POST /petclinic/api/vets|500|Required request body is missing: public org.springframework.http.ResponseEntity<org.springframework.samples.petclinic.rest.dto.VetDto> org.springframework.samples.petclinic.rest.controller.VetRestCon",
+  "POST /petclinic/api/vets|500|{\"<s>\":\"<s>\",\"<s>\":\"<s>\",\"<s>\":<n>,\"<s>\":\"<s>\",\"<s>\":\"<s>\"}",
+  "POST /petclinic/api/visits|500|JSON parse error: Cannot deserialize value of type `java.lang.Integer` from Boolean value (token `JsonToken.VALUE_TRUE`)",
+  "POST /petclinic/api/visits|500|JSON parse error: Cannot deserialize value of type `java.time.LocalDate` from Object value (token `JsonToken.START_OBJECT`)",
+  "POST /petclinic/api/visits|500|JSON parse error: Cannot deserialize value of type `java.time.LocalDate` from String \"<s>\": Failed to deserialize java.time.LocalDate: (java.time.format.DateTimeParseException) Text '<s>' could not be",
+  "PUT /petclinic/api/owners/{ownerId}/pets/{petId}|500|Content-Type is not supported",
+  "PUT /petclinic/api/owners/{ownerId}/pets/{petId}|500|JSON parse error: Cannot deserialize value of type `java.time.LocalDate` from String \"<s>\": Failed to deserialize java.time.LocalDate: (java.time.format.DateTimeParseException) Text '<s>' could not be",
+  "PUT /petclinic/api/owners/{ownerId}/pets/{petId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "PUT /petclinic/api/owners/{ownerId}|500|Content-Type is not supported",
+  "PUT /petclinic/api/owners/{ownerId}|500|JSON parse error: Cannot deserialize value of type `org.springframework.samples.petclinic.rest.dto.OwnerFieldsDto` from Array value (token `JsonToken.START_ARRAY`)",
+  "PUT /petclinic/api/owners/{ownerId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "PUT /petclinic/api/pets/{petId}|500|JSON parse error: Cannot deserialize value of type `java.time.LocalDate` from String \"<s>\": Failed to deserialize java.time.LocalDate: (java.time.format.DateTimeParseException) Text '<s>' could not be",
+  "PUT /petclinic/api/pets/{petId}|500|JSON parse error: Unexpected character ('<s>' (code <n>)): was expecting double-quote to start field name",
+  "PUT /petclinic/api/pets/{petId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "PUT /petclinic/api/pettypes/{petTypeId}|500|JSON parse error: Cannot deserialize value of type `java.lang.Integer` from String \"<s>\": not a valid `java.lang.Integer` value",
+  "PUT /petclinic/api/pettypes/{petTypeId}|500|JSON parse error: Cannot deserialize value of type `java.lang.String` from Array value (token `JsonToken.START_ARRAY`)",
+  "PUT /petclinic/api/pettypes/{petTypeId}|500|JSON parse error: Unrecognized token '<s>': was expecting (JSON String, Number, Array, Object or token '<s>', '<s>' or '<s>')",
+  "PUT /petclinic/api/pettypes/{petTypeId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "PUT /petclinic/api/pettypes/{petTypeId}|500|Required request body is missing: public org.springframework.http.ResponseEntity<org.springframework.samples.petclinic.rest.dto.PetTypeDto> org.springframework.samples.petclinic.rest.controller.PetTyp",
+  "PUT /petclinic/api/specialties/{specialtyId}|500|JSON parse error: Cannot deserialize value of type `java.lang.String` from Array value (token `JsonToken.START_ARRAY`)",
+  "PUT /petclinic/api/specialties/{specialtyId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "PUT /petclinic/api/specialties/{specialtyId}|500|updateSpecialty.specialtyId: must be greater than or equal to <n>",
+  "PUT /petclinic/api/vets/{vetId}|500|JSON parse error: Cannot deserialize value of type `java.lang.String` from Object value (token `JsonToken.START_OBJECT`)",
+  "PUT /petclinic/api/vets/{vetId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "PUT /petclinic/api/vets/{vetId}|500|No static resource api/vets.",
+  "PUT /petclinic/api/vets/{vetId}|500|updateVet.vetId: must be greater than or equal to <n>",
+  "PUT /petclinic/api/visits/{visitId}|500|JSON parse error: Cannot deserialize value of type `java.lang.String` from Object value (token `JsonToken.START_OBJECT`)",
+  "PUT /petclinic/api/visits/{visitId}|500|JSON parse error: Expected array or string.",
+  "PUT /petclinic/api/visits/{visitId}|500|Method parameter '<s>': Failed to convert value of type '<s>' to required type '<s>'; For input string: \"<s>\"",
+  "PUT /petclinic/api/visits/{visitId}|500|Required request body is missing: public org.springframework.http.ResponseEntity<org.springframework.samples.petclinic.rest.dto.VisitDto> org.springframework.samples.petclinic.rest.controller.VisitRes"
+ ]
+}

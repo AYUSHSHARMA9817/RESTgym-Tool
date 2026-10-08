@@ -12,9 +12,10 @@ called SpecSeed (`\tool`): it parses an OpenAPI 3 specification (all `$ref`,
 dependencies, generates request values in three modes (VALID, BOUNDARY, INVALID)
 from examples, formats, regex patterns and names, and reuses real ids through the
 engine's resource pool. Main result: on two REST League APIs run live with the same
-budget, operations reaching a 2XX rose from 30.3% to about 96% (pet-clinic) and from
-5.0% to about 65% (gestao-hospital); values and id reuse gave the gain, dependency
-order added nothing measurable. Exact numbers: `data/numbers.tex`.
+budget, operations reaching a 2XX rose from 30.3% to 95.4% (pet-clinic) and from
+5.0% to 78.0% (gestao-hospital); values and id reuse gave the gain, dependency
+order changed it by less than one operation. Exact numbers: `data/numbers.tex`.
+Main text ends on page 12 (limit 12); `make check` passes.
 
 ## 2. Venue
 
@@ -66,7 +67,7 @@ Every number in the text is a macro from `data/numbers.tex`.
 
 ## 6. Paper TODOs
 
-`grep -n '\\todo\|\\num{' sections/*.tex` — none left at handoff.
+`grep -n '\\todo\|\\num{' sections/*.tex` — none left at handoff (`make check` passes).
 
 ## 7. Lessons / pitfalls
 
@@ -75,5 +76,8 @@ Every number in the text is a macro from `data/numbers.tex`.
 * Give every configuration the same total request budget, or fault counts are not comparable.
 * gestao-hospital rejects POST bodies with an `id`; the spec does not say so.
 * The MongoDB container sometimes fails its first start; `eval/apis.py` retries.
+* The English plural rule broke on Portuguese (`hospitais`); keys now also match on a
+  6-character common prefix. A bare `id` must not match every key (it did, and broke PUT).
+* The API jars live in `../apis/` (git-ignored); fetch them with `src/eval/get_apis.sh ../apis`.
 * Build the paper with `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/w -w /w texlive/texlive:latest make`
   (no local TeX installation needed).

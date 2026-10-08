@@ -25,8 +25,8 @@ reuses values seen in responses. Martin-Lopez et al.\ go one level deeper and
 model the constraints between parameters of the same
 operation~\cite{idl}. We use a deliberately small version of
 producer--consumer order. What we add is a measurement of how much order
-contributes once ids are already reused: on the APIs we tested, very little
-(Observation~\ref{obs:order}).
+contributes once ids are already reused: on the APIs we tested, less than one
+operation (Observation~\ref{obs:order}).
 
 \paragraph{Complete testing tools.} EvoMaster~\cite{evomaster} generates
 tests with an evolutionary search guided by code coverage, which needs access
@@ -42,7 +42,7 @@ its own, with the other parts held fixed, so that its effect is not mixed
 with that of a search strategy.
 
 \paragraph{Empirical comparisons.} Corradini et al.\ compared black-box
-REST testing tools on the same APIs~\cite{corradini-comparison}, and Kim et
+REST testing tools on the same APIs~\cite{corradini-comparison}. Kim et
 al.\ compared tools on real-world services and listed open problems for the
 field, among them producing valid input values and handling dependencies
 between operations~\cite{no-time-to-rest}. RESTgym~\cite{restgym} and REST

@@ -85,12 +85,11 @@ repositories at commits \texttt{e8250db} (pet-clinic) and \texttt{d4cb6c7}
 (gestao-hospital); gestao-hospital used \texttt{mongo:6} with the seed data
 of its repository. Every run had a budget of 20 requests per operation
 (\NPetclinicBudget for pet-clinic, \NGestaohospitalBudget for
-gestao-hospital). The runner first makes two nominal passes over the
-operations: each operation gets up to five \mode{VALID} requests per pass
-and stops at its first 2XX. The rest of the budget goes to error requests,
-round-robin over the operations, alternating \mode{BOUNDARY} and
-\mode{INVALID} for \tool and the usual random values for the baseline. We
-ran each configuration \NReps times with seeds 1000 to 1004.
+gestao-hospital). The runner first makes two nominal passes, giving each
+operation up to five \mode{VALID} requests per pass until its first 2XX. The
+rest of the budget goes to error requests, round-robin over the operations:
+\mode{BOUNDARY} and \mode{INVALID} in turn for \tool, random values for the
+baseline. Each configuration ran \NReps times, with seeds 1000 to 1004.
 
 \subsection{\rqref{1}: Reading Real Specifications}
 \label{sec:rq1}
@@ -162,18 +161,21 @@ Reusing ids from earlier responses raised the operations reached further, to
 \NGestaohospitalValuesPlusPoolCov on gestao-hospital.
 \end{observation}
 
-The operation order of Step~2 did not reach more operations: the full
-configuration reached \NPetclinicFullOps operations on pet-clinic and
-\NGestaohospitalFullOps on gestao-hospital, within one standard deviation of
-+Pool. It did spend fewer nominal requests on pet-clinic
-(\NPetclinicFullNominal against \NPetclinicValuesPlusPoolNominal), because
-creators run before the operations that need their ids.
+The operation order of Step~2 changed little. The full configuration reached
+\NPetclinicFullOps operations on pet-clinic against
+\NPetclinicValuesPlusPoolOps for +Pool, and \NGestaohospitalFullOps on
+gestao-hospital against \NGestaohospitalValuesPlusPoolOps. It spent about
+the same number of nominal requests (\NPetclinicFullNominal against
+\NPetclinicValuesPlusPoolNominal on pet-clinic, \NGestaohospitalFullNominal
+against \NGestaohospitalValuesPlusPoolNominal on gestao-hospital).
+Section~\ref{sec:discussion} explains why.
 
 \begin{observation}
 \label{obs:order}
-Once ids are reused, dependency order added no reached operations on either
-API; on pet-clinic it saved nominal requests (\NPetclinicFullNominal instead
-of \NPetclinicValuesPlusPoolNominal).
+Once ids are reused, dependency order changed the operations reached by less
+than one operation on average: \NPetclinicValuesPlusPoolOps to
+\NPetclinicFullOps on pet-clinic and \NGestaohospitalValuesPlusPoolOps to
+\NGestaohospitalFullOps on gestao-hospital.
 \end{observation}
 
 \paragraph{The motivating operation.} Over the \NReps baseline runs on

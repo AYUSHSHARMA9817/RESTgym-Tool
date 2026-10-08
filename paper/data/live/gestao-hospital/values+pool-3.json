@@ -1,0 +1,156 @@
+{
+ "api": "gestao-hospital",
+ "config": "values+pool",
+ "seed": 1003,
+ "operations": 20,
+ "ops_with_2xx": 15,
+ "nominal_requests": 75,
+ "total_requests": 400,
+ "unique_5xx": 1,
+ "seconds": 12.0,
+ "per_op": {
+  "GET /v1/hospitais/": {
+   "requests": 18,
+   "2xx": 18,
+   "4xx": 0,
+   "5xx": 0,
+   "first_2xx_at": 1
+  },
+  "POST /v1/hospitais/": {
+   "requests": 18,
+   "2xx": 4,
+   "4xx": 14,
+   "5xx": 0,
+   "first_2xx_at": 2
+  },
+  "GET /v1/hospitais/maisProximo": {
+   "requests": 27,
+   "2xx": 0,
+   "4xx": 19,
+   "5xx": 8,
+   "first_2xx_at": null
+  },
+  "GET /v1/hospitais/{hospital_id}": {
+   "requests": 18,
+   "2xx": 10,
+   "4xx": 8,
+   "5xx": 0,
+   "first_2xx_at": 8
+  },
+  "PUT /v1/hospitais/{hospital_id}": {
+   "requests": 18,
+   "2xx": 6,
+   "4xx": 12,
+   "5xx": 0,
+   "first_2xx_at": 9
+  },
+  "DELETE /v1/hospitais/{hospital_id}": {
+   "requests": 17,
+   "2xx": 5,
+   "4xx": 12,
+   "5xx": 0,
+   "first_2xx_at": 10
+  },
+  "GET /v1/hospitais/{hospital_id}/estoque": {
+   "requests": 17,
+   "2xx": 5,
+   "4xx": 12,
+   "5xx": 0,
+   "first_2xx_at": 11
+  },
+  "POST /v1/hospitais/{hospital_id}/estoque": {
+   "requests": 17,
+   "2xx": 5,
+   "4xx": 12,
+   "5xx": 0,
+   "first_2xx_at": 12
+  },
+  "GET /v1/hospitais/{hospital_id}/estoque/{produto_id}": {
+   "requests": 26,
+   "2xx": 1,
+   "4xx": 25,
+   "5xx": 0,
+   "first_2xx_at": 244
+  },
+  "PUT /v1/hospitais/{hospital_id}/estoque/{produto_id}": {
+   "requests": 26,
+   "2xx": 0,
+   "4xx": 26,
+   "5xx": 0,
+   "first_2xx_at": null
+  },
+  "DELETE /v1/hospitais/{hospital_id}/estoque/{produto_id}": {
+   "requests": 26,
+   "2xx": 0,
+   "4xx": 26,
+   "5xx": 0,
+   "first_2xx_at": null
+  },
+  "GET /v1/hospitais/{hospital_id}/hospitaisProximos": {
+   "requests": 17,
+   "2xx": 2,
+   "4xx": 15,
+   "5xx": 0,
+   "first_2xx_at": 28
+  },
+  "GET /v1/hospitais/{hospital_id}/pacientes": {
+   "requests": 18,
+   "2xx": 5,
+   "4xx": 13,
+   "5xx": 0,
+   "first_2xx_at": 30
+  },
+  "POST /v1/hospitais/{hospital_id}/pacientes/checkin": {
+   "requests": 17,
+   "2xx": 5,
+   "4xx": 12,
+   "5xx": 0,
+   "first_2xx_at": 31
+  },
+  "POST /v1/hospitais/{hospital_id}/pacientes/checkout": {
+   "requests": 26,
+   "2xx": 0,
+   "4xx": 26,
+   "5xx": 0,
+   "first_2xx_at": null
+  },
+  "GET /v1/hospitais/{hospital_id}/pacientes/{patientId}": {
+   "requests": 17,
+   "2xx": 5,
+   "4xx": 12,
+   "5xx": 0,
+   "first_2xx_at": 37
+  },
+  "PUT /v1/hospitais/{hospital_id}/pacientes/{patientId}": {
+   "requests": 17,
+   "2xx": 3,
+   "4xx": 14,
+   "5xx": 0,
+   "first_2xx_at": 38
+  },
+  "GET /v1/hospitais/{hospital_id}/proximidades": {
+   "requests": 17,
+   "2xx": 5,
+   "4xx": 12,
+   "5xx": 0,
+   "first_2xx_at": 39
+  },
+  "GET /v1/hospitais/{id}/leitos": {
+   "requests": 17,
+   "2xx": 7,
+   "4xx": 10,
+   "5xx": 0,
+   "first_2xx_at": 40
+  },
+  "POST /v1/hospitais/{id}/transferencia/{productId}": {
+   "requests": 26,
+   "2xx": 0,
+   "4xx": 26,
+   "5xx": 0,
+   "first_2xx_at": null
+  }
+ },
+ "faults": [
+  "GET /v1/hospitais/maisProximo|500|Query failed with error code <n> and error message '<s>' on server rl-gestao-hospital-db:<n>; nested exception is com.mongodb.MongoQueryException: Query failed with error code <n> and error message '<"
+ ]
+}

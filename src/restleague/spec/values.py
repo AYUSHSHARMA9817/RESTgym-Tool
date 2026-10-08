@@ -62,9 +62,20 @@ def generate_request(op: Operation, pool: Any = None, mode: Mode = Mode.VALID) -
         else:
             req.body = body
 
+    _align_body_id(req, op)
     if mode == Mode.INVALID:
         _break_one_location(req, op)
     return req
+
+
+def _align_body_id(req: Request, op: Operation) -> None:
+    """In PUT/PATCH /things/{thingId}, a body field "id" names the thing being updated:
+    give it the same value as the last path parameter."""
+    if op.method not in ("PUT", "PATCH") or not isinstance(req.body, dict) or "id" not in req.body:
+        return
+    last = op.path.rstrip("/").rsplit("/", 1)[-1]
+    if last.startswith("{") and last[1:-1] in req.path_params:
+        req.body["id"] = req.path_params[last[1:-1]]
 
 
 def gen_value(schema: dict, mode: Mode = Mode.VALID, name: str = "",
@@ -175,7 +186,7 @@ def _gen_object(schema: dict, mode: Mode, pool, depth: int, op) -> dict:
         if prop not in required and depth > 0 and rng.random() < 0.3:
             continue  # sometimes leave out optional nested fields
         value = None
-        if is_id_like(prop):
+        if is_id_like(prop) and prop.lower() != "id":  # a bare "id" names no other resource
             value = _lookup(pool, prop, sub, op)
         elif _type_of(sub) == "object" and "id" in sub.get("properties", {}):
             # a reference to another resource, e.g. pet.type = {"id": 1, "name": "cat"}

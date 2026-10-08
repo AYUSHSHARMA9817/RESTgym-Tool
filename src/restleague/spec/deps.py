@@ -123,7 +123,9 @@ def keys_match(a: str, b: str) -> bool:
     'typeid' ~ 'pettypeid' (one ends with the other);
     'hospitaiid' ~ 'hospitalid' (long common prefix: plurals the English rule
     in _singular() gets wrong, such as Portuguese 'hospitais')."""
-    if a == b or a.endswith(b) or b.endswith(a):
+    if a == b:
+        return True
+    if min(len(a), len(b)) > 2 and (a.endswith(b) or b.endswith(a)):  # a bare "id" matches nothing
         return True
     common = 0
     for x, y in zip(a, b):

@@ -64,8 +64,8 @@ path, such as \texttt{POST /owners}. It \emph{consumes} a key for each path
 parameter, and for each required body field that names another resource,
 either a field ending in \texttt{Id} or an object with an \texttt{id}
 property. When no operation produces a consumed key exactly, \tool takes the
-shortest producer key that ends with it or shares its first six characters,
-so the body field \texttt{type} (key \texttt{typeid}) links to
+shortest producer key that ends with it or shares its first six characters.
+For example, the body field \texttt{type} (key \texttt{typeid}) links to
 \texttt{POST /pettypes} (key \texttt{pettypeid}). The \emph{depth} of an operation is the length of the
 longest chain of producers before it. The final order is: creators and
 readers by increasing depth, and \texttt{DELETE} operations last, deepest

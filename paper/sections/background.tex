@@ -42,11 +42,9 @@ values. Five of its ten APIs are known in advance; pet-clinic and
 gestao-hospital, the two APIs we test live in Section~\ref{sec:eval}, are
 among them.
 
-\paragraph{Our team tool.} We build a REST League tool in three parts with a
-fixed interface between them. The \emph{spec component} reads the
-specification and produces requests. The \emph{engine} sends the requests,
-keeps a \emph{resource pool} of ids seen in responses, and decides what to
-try next. The \emph{packaging} runs the tool in RESTgym. This report is about
-the spec component, which we call \tool. The engine calls \tool through one
-function, \texttt{generate\_request(op, pool, mode)}, and \tool asks the pool
-for real ids through \texttt{pool.lookup(name, schema, op)}.
+\paragraph{Our team tool.} Our REST League tool has three parts: a spec
+component that produces requests, an \emph{engine} that sends them and keeps a
+\emph{resource pool} of ids seen in responses, and packaging for RESTgym.
+This report is about the spec component, \tool. The engine calls
+\texttt{generate\_request(op, pool, mode)}; \tool asks the pool for real
+ids with \texttt{pool.lookup(name, schema, op)}.

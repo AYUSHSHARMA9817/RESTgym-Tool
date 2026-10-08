@@ -8,16 +8,13 @@ code (without blank lines and comments): \NLocParser for Step~1,
 types (operation, parameter, request, response) come from the team's common
 interface file and are not counted.
 
-\paragraph{Tests.} The tests have \NLocTests lines. A ladder of \NLevels
-small specifications checks Step~1 one rule at a time, from a single
-\texttt{GET} up to recursive schemas, \texttt{allOf} and base paths, against
-exact expected output. A second check parses all \NSpecs real specifications
-and counts the operations and the references left. A third check generates
-30 requests per operation and mode for every specification and fails on a
-crash or on a \mode{VALID} value that breaks its schema. A fourth check uses
-a stand-in pool and asserts that real ids reach the path parameters.
+\paragraph{Tests.} The tests have \NLocTests lines: \NLevels small
+specifications that check Step~1 one rule at a time against exact expected
+output; a parse of all \NSpecs real specifications; 30 requests per
+operation and mode that must not crash and whose \mode{VALID} values must fit
+their schema; and a stand-in pool whose ids must reach the path parameters.
 
-\paragraph{Pitfalls.} Four problems showed up only on real specifications
+\paragraph{Pitfalls.} Five problems showed up only on real specifications
 and APIs.
 First, the flight-search specification gives some strings a
 \texttt{maxLength} of $2^{31}-1$. An early version of \mode{BOUNDARY} mode
@@ -37,5 +34,10 @@ removes a plural \texttt{s} the English way, which turns the Portuguese
 collection \texttt{hospitais} into the key \texttt{hospitaiid}, while the path
 parameter \texttt{hospital\_id} becomes \texttt{hospitalid}. The two never
 matched, so no hospital id was ever reused. Two keys now also match when they
-share their first six characters. All results in this report come from the
-version with the last two changes.
+share their first six characters. Fifth, with ids reused, the body field
+\texttt{id} of \texttt{PUT /v1/hospitais/\{hospital\_id\}} received the id
+of some other hospital, because the bare key \texttt{id} matched every
+resource key, and the API rejected all such updates. A bare \texttt{id} now
+matches no other key, and in a \texttt{PUT} or \texttt{PATCH} body it takes
+the value of the last path parameter. All results in this report come from
+the version with the last three changes.

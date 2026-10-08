@@ -18,11 +18,11 @@
   \node[ext, text width=10mm] (api) at (11.8,0) {REST\\API};
   \node[ext] (pool) at (9.6,-1.7) {resource\\pool};
   \draw[flow] (spec) -- (s1);
-  \draw[flow] (s1) -- node[above] {operations} (s2);
-  \draw[flow] (s2) -- node[above] {order} (s3);
-  \draw[flow] (s3) -- node[above] {request} (eng);
+  \draw[flow] (s1) -- (s2);
+  \draw[flow] (s2) -- (s3);
+  \draw[flow] (s3) -- (eng);
   \draw[flow] (eng) -- (api);
-  \draw[back] (api.south) |- node[pos=0.75, below] {2XX response} (pool.east);
+  \draw[back] (api.south) |- node[pos=0.25, right] {2XX response} (pool.east);
   \draw[flow] (pool) -- node[below] {lookup} (s4);
   \draw[flow] (s4) -- node[right] {real ids} (s3);
   \node[font=\tiny, align=left, anchor=north west] at (1.2,-1.0)

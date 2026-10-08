@@ -1,6 +1,44 @@
 \section{Discussion}
 \label{sec:discussion}
-%% Question-style paragraphs that answer what a reviewer will ask:
-%%   \paragraph{Is more X always better?} No. ...
-%% End limits with "We leave this for future work." -- do not hide them.
-\paragraph{\todo{Reviewer question}?} \todo{Short, honest answer.}
+
+\paragraph{Why does operation order add so little?} Two features of our
+setup make up for a bad order. First, both APIs start with seed data: a list
+request such as \texttt{GET /owners} returns existing owners and their pets,
+and the pool collects their ids, so an operation can be reached before any
+creator has run. Second, the runner makes two nominal passes, so an operation
+that failed because its creator came later in the file gets a second try
+after the creator ran. Order matters only inside the first pass, which is a
+small part of the budget. An API that starts empty, or a runner that never
+returns to a failed operation, would depend on order more. We leave this for
+future work.
+
+\paragraph{What does \tool still not reach?} We read the operations that
+stayed unreached in the full configuration (\texttt{data/live/}).
+\begin{itemize}
+  \item \texttt{GET /oops} on pet-clinic returned 500 with ``No static
+    resource api/oops'' to every request of every configuration. The
+    operation is in the specification, but the deployed API does not serve
+    it, so no input can reach a 2XX.
+  \item \texttt{GET /owners/\{ownerId\}/pets/\{petId\}} on pet-clinic was
+    missed in some runs. The pool picks the owner and the pet independently,
+    and the API answers 404 when the pet belongs to another owner: pet~1
+    returns 200 under owner~1 and 404 under owner~2
+    (\texttt{data/diagnosis.json}). Picking ids that came from the same
+    response should fix this.
+  \item The stock operations of gestao-hospital need a
+    \texttt{produto\_id} (product), but the operation that adds stock is
+    named \texttt{estoque} (stock). The two words share nothing, so name
+    matching cannot link them (\texttt{data/diagnosis.json} lists the keys).
+  \item Patient checkout and product transfer on gestao-hospital were never
+    reached. We did not find out why.
+\end{itemize}
+A local language model, which REST League allows, could link words such as
+\texttt{estoque} and \texttt{produto}, at a far higher cost per request than
+\tool has now. We leave this for future work.
+
+\paragraph{Are the extra 5XX responses bugs?} Some are, but many are not.
+On pet-clinic, a path parameter such as \texttt{ownerId=abc} returns 500
+with ``Failed to convert value of type \ldots'' instead of 400. A developer
+would call that a missing input check, not a crash. REST League counts each
+distinct message, so the error modes of \tool raise the competition score,
+but the number of unique 5XX responses overstates the number of bugs.
