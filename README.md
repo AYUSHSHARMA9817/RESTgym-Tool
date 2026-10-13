@@ -1,86 +1,156 @@
-# Black-box REST API testing tool — REST League 2027
+# SpecSeed
 
-An automated, black-box testing tool for RESTful APIs, built for
-[REST League 2027](https://seunivr.github.io/RestLeague/2027/) (ICSE 2027
-Competition Track) and this CS-5187 term project. Given only an API's OpenAPI
-specification and its endpoint, the tool sends HTTP requests to **maximise
-operation coverage** (endpoints that return 2XX) and **unique 5XX faults**
-within a time budget — no access to source code, schema, or logs. It is fully
-automated, REST-specific, containerised for RESTgym, and uses no LLM.
+SpecSeed is a first-prototype automated black-box REST API testing tool for
+REST League 2027. It uses an OpenAPI specification, generated requests, HTTP
+feedback, resource reuse, operation ordering, and request mutations to explore
+REST APIs.
 
-## Repository layout
+## Requirements
 
-```
-src/      the tool (RESTgym-ready) + tests + sample specs      ← code
-paper/    the solution/report paper (LaTeX, ACM format)        ← report
-```
+- Docker
+- Linux, macOS, or Windows with WSL2 and Docker Desktop WSL integration
+- A RESTgym checkout
 
-- Tool details and build/run instructions: [`src/README.md`](src/README.md) and
-  [`src/SUBMISSION.md`](src/SUBMISSION.md).
+The tool does not require source-code access, database-schema access, internal
+logs, or a remote LLM.
 
-## How it works
+## Installation
 
-```
-OpenAPI spec ──▶ parse & resolve ($ref/allOf) ──▶ order operations ──▶ engine
-                 (list of Operations)             (creators first,    (budgeted loop)
-                                                    DELETE last)
+Place the submitted `specseed` directory under the RESTgym repository:
+
+```text
+restgym/
+└── tools/
+    └── specseed/
 ```
 
-- **Spec → requests.** The specification is parsed into operations with every
-  `$ref` resolved; operations are ordered so resources are created before they
-  are read, updated, or deleted. A value generator fills parameters and bodies
-  in three modes — `VALID`, `BOUNDARY`, `INVALID`.
-- **Learn & reuse ids.** After every 2XX the engine harvests ids and objects
-  from the response (body, `Location` header) into a pool; the generator reuses
-  them so nested routes like `POST /owners/{ownerId}/pets` are reachable instead
-  of returning 404.
-- **Coverage, then fuzz.** Phase 1 drives nominal requests to cover every
-  operation; phase 2 mutates known-good requests (missing/boundary/wrong-type
-  fields, malformed bodies, stale ids) and runs a systematic injection sweep,
-  steered by a bandit toward operations that crash or stay uncovered. A
-  slow/timeout back-off keeps one slow endpoint from draining the budget.
+The directory must contain:
 
-## Quick start
-
-Local (no Docker):
-
-```sh
-cd src
-pip install -r requirements.txt
-python -m pytest tests/test_engine.py -q      # engine test suite (18 tests)
-python -m tests.check_parser                  # spec parser over 15 sample specs
-# run the full tool against any live API (1-minute budget):
-HOST=127.0.0.1 PORT=8080 API=pet-clinic TIME_BUDGET=1 \
-  SPEC=specs/pet-clinic-openapi.json python -m restleague.main
+```text
+tools/specseed/
+├── Dockerfile
+├── config.sh
+├── restgym-tool-config.yml
+├── requirements.txt
+├── restleague/
+├── tests/
+└── docs/
 ```
 
-Docker (standalone image, bundles the sample specs):
+The RESTgym repository supplies the API containers and mounts the API
+specifications for each experiment.
 
-```sh
-cd src
-docker build -t restleague-tool -f Dockerfile.standalone .
-docker run --rm --network host \
-  -e HOST=127.0.0.1 -e PORT=8080 -e API=pet-clinic -e TIME_BUDGET=1 restleague-tool
+## Docker build
+
+Run this command from the RESTgym repository root:
+
+```bash
+docker build -f tools/specseed/Dockerfile -t restgym-specseed .
 ```
 
-RESTgym runs the tool by setting `HOST`, `PORT`, `API` and `TIME_BUDGET` (minutes)
-and mounting the spec at `/specifications/<API>-openapi.json`; see
-`src/SUBMISSION.md` for the compliant `Dockerfile`, `config.sh` and
-`restgym-tool-config.yml`.
+The Dockerfile installs all Python dependencies during image build. No package
+installation is required while the tool is testing an API.
 
-## Status
+## RESTgym execution
 
-- Spec parser: 15/15 sample specs parse with 0 unresolved `$ref`.
-- Engine test suite: 18/18 pass.
-- End-to-end on a live API: full operation coverage with multiple distinct 5XX
-  faults at a few hundred requests/second on a single core.
+From the RESTgym repository root:
 
-## The paper (`paper/`)
-
-```sh
-cd paper
-make          # builds paper/main.pdf
-make check    # checks TODOs, page limit, undefined refs
+```bash
+chmod +x restgym.sh
+./restgym.sh b
+./restgym.sh l
+./restgym.sh v
+./restgym.sh a
 ```
 
-Every number in the paper comes from a real run of the code in `src/`.
+The commands respectively build images, launch experiments, verify raw
+experiment data, and analyze verified results.
+
+RESTgym prompts for the number of repetitions. The official competition uses
+five repetitions and a one-hour budget per API. Use a shorter budget during
+local smoke tests.
+
+## Runtime environment
+
+RESTgym provides these environment variables to the tool:
+
+| Variable | Meaning |
+|---|---|
+| `HOST` | Hostname of the target API or RESTgym proxy |
+| `PORT` | Port of the target API or RESTgym proxy |
+| `API` | RESTgym API slug |
+| `TIME_BUDGET` | Testing budget in minutes |
+
+The tool sends requests to:
+
+```text
+http://$HOST:$PORT
+```
+
+The selected OpenAPI specification is read from:
+
+```text
+/specifications/$API-openapi.json
+```
+
+RESTgym mounts this specification into the tool container. The tool does not
+hardcode any of the benchmark API implementations.
+
+## Authentication
+
+Optional authentication can be configured through environment variables:
+
+```text
+AUTH_HEADER
+AUTH_LOGIN_PATH
+AUTH_LOGIN_BODY
+AUTH_TOKEN_FIELD
+AUTH_TOKEN_HEADER
+AUTH_TOKEN_PREFIX
+```
+
+These are only needed for APIs requiring authentication.
+
+## Competition metrics
+
+SpecSeed sends the HTTP requests. RESTgym and its independent Restats
+infrastructure record the traffic and compute:
+
+- Unique 5XX fault detection
+- Operation coverage
+- Method, statement, and branch coverage
+- Testing-efficiency AUC
+
+SpecSeed does not require access to API source code or internal coverage data.
+
+## Local checks
+
+From `tools/specseed/`, the following checks can be run:
+
+```bash
+python -m tests.check_parser
+python -m tests.check_values
+python -m tests.check_pool
+python -m pytest tests/test_engine.py -q
+```
+
+## Tool maturity
+
+SpecSeed is a working first prototype. It has been packaged as a RESTgym
+Docker tool and validated through a local build, a smoke experiment, RESTgym
+data verification, and result analysis. It has not yet been field-tested in
+the organizers' final competition environment.
+
+## License
+
+SpecSeed is released under the Apache License 2.0; see [`LICENSE`](LICENSE).
+
+## Tool manifest
+
+[`restgym-tool-manifest.yaml`](restgym-tool-manifest.yaml) holds the metadata RESTgym
+needs to run the tool: id `specseed`, OpenAPI 3.0 JSON specifications, a time budget,
+no LLM, no GPU and no network access except the API under test.
+
+## Authors
+
+Ayush Sharma, Sayan Mandal and Biraj Sarkar (Indian Institute of Technology Guwahati).
