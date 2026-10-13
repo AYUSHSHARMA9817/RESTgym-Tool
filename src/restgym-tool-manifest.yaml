@@ -1,0 +1,38 @@
+# RESTgym tool manifest
+#
+# Static metadata about the tool, written by the tool authors. RESTgym uses it to run the tool properly.
+# Comment out the fields you do not know.
+manifest_version: 1
+
+# Identity and metadata
+id: specseed                      # must match the name of the tool directory in tools/ (ARG TOOL_NAME in our Dockerfile)
+name: SpecSeed
+version: "1.0.0"                  # quoted, so that YAML does not read it as a number
+description: Black-box REST API tester that turns an OpenAPI specification into schema-aware requests, reuses ids from earlier responses, and fuzzes within a time budget to maximise operation coverage and unique 5XX responses.
+# license: Apache-2.0             # no license chosen yet
+# repository:                     # source is a private course repository; the code was sent with the submission
+# homepage:
+authors:
+  - name: Ayush Sharma
+    affiliation: Indian Institute of Technology Guwahati
+    # orcid: 0000-0000-0000-0000
+  - name: Sayan Mandal
+    affiliation: Indian Institute of Technology Guwahati
+    # orcid: 0000-0000-0000-0000
+  - name: Biraj Sarkar
+    affiliation: Indian Institute of Technology Guwahati
+    
+# citation:
+#   doi:
+
+# What the tool can test
+compatibility:
+  openapi_versions: ["3.0"]       # "2.0" (Swagger), "3.0", "3.1", "3.2"
+  spec_formats: [json]            # reads /specifications/{API}-openapi.json
+  budgets: [time]                 # TIME_BUDGET in minutes (default 60); no request-budget setting
+
+# What RESTgym must provide: no special requirements.
+# Runs within the 8 cores / 16 GB per tool; no GPU; no network access except the API under test
+# (all Python packages are installed when the image is built).
+
+# Large language models used by the tool: none.
