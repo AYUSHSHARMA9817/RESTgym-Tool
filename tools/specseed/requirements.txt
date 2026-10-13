@@ -1,0 +1,7 @@
+# Engine runtime dependency
+httpx>=0.27
+# The spec component is standard-library only.
+# PyYAML is only needed if a spec is YAML (engine fallback parser); the bundled specs are JSON.
+PyYAML>=6.0
+# Test-only extras (not needed to run the tool):
+#   pytest, fastapi, uvicorn
