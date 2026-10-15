@@ -72,6 +72,21 @@ v = check({"name": "Leo"}, {"id": 1, "name": "Max"})
 assert v and "not persisted" in v[0].summary, v
 print("OK   a field genuinely stored with a different value still fires")
 
+# On an item route the trailing path parameter identifies the entity, even when
+# the response body echoes a different id. Reading the body's id instead sent
+# the check to another entity, whose unrelated values were then reported as
+# "not persisted" (seen live as "name: sent 'Hiro', read back 'beta302'").
+client = One(Response(status=200, json={"id": 1, "name": "Leo"}))
+req = Request("PUT", "/patients/{patientId}", path_params={"patientId": 1},
+              body={"name": "Leo"}, op_key=put.key)
+seq = Sequence()
+seq.append(Step(req, Response(status=200, json={"id": 99, "name": "Leo"})))
+assert asyncio.run(CrudRoundtripOracle().check(
+    seq, OracleContext(ops=OPS_ID, client=client))) == []
+assert client.sent and client.sent[0].path_params["patientId"] == 1, \
+    f"must read back entity 1 from the path, not 99 from the body: {client.sent[0].path_params}"
+print("OK   read-back uses the path id, not a different id echoed in the body")
+
 
 # ----------------------------------------------------- reproduction pass
 class Flaky(BuggyApi):

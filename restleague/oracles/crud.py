@@ -195,6 +195,20 @@ class ZombieResourceOracle(Oracle):
 
 
 def _entity_id(resp, req: Request) -> Any:
+    """Which entity did this request write? The path wins when it says.
+
+    On an item-level route the trailing path parameter *is* the entity's
+    identity -- ``PUT /hospitais/3/estoque/7`` wrote product 7 whatever the
+    response body contains. Preferring the body's ``id`` meant that a response
+    echoing some other id (a parent, a nested object) sent the round-trip check
+    off to read a different entity, whose values were then reported as "written
+    field not persisted". Against a live gestao-hospital that produced
+    "name: sent 'Hiro', read back 'beta302'" -- beta302 being a value this
+    tool had generated for an unrelated product.
+    """
+    params = _PARAM_RE.findall(req.path)
+    if params and params[-1] in req.path_params:
+        return req.path_params[params[-1]]
     if isinstance(resp.json, dict):
         for k in ("id", "Id", "ID", "_id", "uuid"):
             v = resp.json.get(k)
@@ -205,7 +219,4 @@ def _entity_id(resp, req: Request) -> Any:
         last = loc.rstrip("/").rsplit("/", 1)[-1].split("?")[0]
         if last:
             return int(last) if last.isdigit() else last
-    params = _PARAM_RE.findall(req.path)
-    if params and params[-1] in req.path_params:
-        return req.path_params[params[-1]]
     return None
