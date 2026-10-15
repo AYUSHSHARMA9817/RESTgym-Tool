@@ -104,3 +104,65 @@ class Response:
     @property
     def is_5xx(self) -> bool:
         return 500 <= self.status < 600
+
+
+# --------------------------------------------- Track A: sequence & state model
+# Additive data model for the stateful-fuzzing track
+# (docs/architecture/track_a_stateful_fuzzing.md). Nothing in spec/ or in the
+# default engine (engine/strategy.py's `run`) depends on these; they exist for
+# restleague/state/, restleague/sequence/ and restleague/oracles/, which are
+# opt-in extensions, not part of the competition entry point.
+
+@dataclass
+class EntityNode:
+    """One tracked API entity, e.g. the pet with id 10 owned by owner 1."""
+    entity_type: str                    # normalised singular resource name, e.g. "pet"
+    entity_id: Any
+    state: Optional[str] = None         # inferred lifecycle state; filled in by a future DSMI
+    attributes: dict = field(default_factory=dict)
+    created_by_op: str = ""             # Operation.key that produced this entity
+    timestamp: float = 0.0
+    deleted: bool = False               # set by cascade_delete; kept around for stale-ref testing
+
+    @property
+    def key(self) -> tuple[str, Any]:
+        return (self.entity_type, self.entity_id)
+
+
+@dataclass
+class EntityEdge:
+    """A relational edge between two tracked entities, e.g. Owner(1) --owns--> Pet(10)."""
+    parent: tuple[str, Any]
+    child: tuple[str, Any]
+    relation: str = "owns"
+
+
+@dataclass
+class Step:
+    """One request/response pair inside a Sequence."""
+    request: Request
+    response: Optional[Response] = None
+    bindings: dict[str, Any] = field(default_factory=dict)   # path params resolved from the RKG
+
+
+@dataclass
+class Sequence:
+    """An ordered chain of Steps assembled to reach a target operation (2 <= len <= 8)."""
+    steps: list[Step] = field(default_factory=list)
+    target_op_key: str = ""
+
+    def append(self, step: Step) -> None:
+        self.steps.append(step)
+
+    def __len__(self) -> int:
+        return len(self.steps)
+
+
+@dataclass
+class OracleViolation:
+    """A semantic bug flagged by a metamorphic oracle (distinct from a 5XX crash)."""
+    oracle: str                          # e.g. "idempotency", "zombie_resource"
+    op_key: str
+    summary: str
+    severity: str = "warning"            # "warning" | "violation"
+    evidence: dict = field(default_factory=dict)
