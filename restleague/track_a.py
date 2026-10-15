@@ -81,7 +81,7 @@ class TrackARunner:
                  seed: Optional[int] = None, generate_request: Optional[Callable] = None,
                  client: Optional[Any] = None, use_oracles: bool = True,
                  weights: Optional[Weights] = None, use_pool: bool = True,
-                 max_checks_per_op: Optional[int] = None):
+                 max_checks_per_op: Optional[int] = None, workers: int = 1):
         self.ops = ops
         self.base_url = base_url
         self.budget = budget_seconds
@@ -105,7 +105,20 @@ class TrackARunner:
                                            static_priors=self.synth.target_priors())
         self.faults = FaultTracker()
         self.violations = ViolationTracker()
+        self.workers = max(1, workers)
+        self.active_workers = self.workers   # the allocator may resize this live
         self.oracles = [cls() for cls in ALL_ORACLES] if use_oracles else []
+        if self.workers > 1 and self.oracles:
+            # Concurrent sequences mutate the API while an oracle is mid-way
+            # through comparing two observations, which is exactly how a
+            # correct API gets reported as broken (see _check_step). Oracles
+            # that judge a single response are unaffected, so only those stay
+            # on once more than one sequence is in flight.
+            stood_down = [o.name for o in self.oracles if o.active]
+            self.oracles = [o for o in self.oracles if not o.active]
+            if stood_down:
+                log.info("workers=%d: comparison oracles stood down (%s)",
+                         self.workers, ", ".join(stood_down))
         self.ops_by_key = {o.key: o for o in ops}
         self.sequences_run = 0
         self.sequence_errors = 0
@@ -134,12 +147,35 @@ class TrackARunner:
 
         start = time.monotonic()
         deadline = start + self.budget
-        last_log = start
         try:
-            while time.monotonic() < deadline:
+            await asyncio.gather(*(self._worker(i, executor, ctx, deadline, start)
+                                   for i in range(self.workers)))
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            log.exception("track A crashed: %s", e)
+        finally:
+            if self._owns_client:
+                await self._client.close()
+        return self._result(time.monotonic() - start)
+
+    async def _worker(self, idx: int, executor, ctx: OracleContext,
+                      deadline: float, start: float) -> None:
+        """One sequence at a time; ``workers`` of these run concurrently.
+
+        ``idx`` lets the allocator resize the pool live: a worker whose index
+        has fallen outside ``active_workers`` idles instead of exiting, so
+        capacity can be handed back without respawning tasks.
+        """
+        last_log = start
+        while time.monotonic() < deadline:
+            if idx >= self.active_workers:
+                await asyncio.sleep(0.2)
+                continue
+            try:
                 target = self.scheduler.next_target()
                 if target is None:
-                    break
+                    return
                 mutation_name = self.scheduler.next_mutation()
                 attack_name = self.scheduler.next_attack()
                 before = self._snapshot()
@@ -172,18 +208,16 @@ class TrackARunner:
                 outcome = self._outcome(before, seq)
                 self.scheduler.update(target, mutation_name, outcome, attack=attack_name)
 
-                if time.monotonic() - last_log > 30:
+                if idx == 0 and time.monotonic() - last_log > 30:
                     log.info("t=%.0fs %s", time.monotonic() - start,
                              self._result(time.monotonic() - start).describe())
                     last_log = time.monotonic()
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            log.exception("track A crashed: %s", e)
-        finally:
-            if self._owns_client:
-                await self._client.close()
-        return self._result(time.monotonic() - start)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                # keep this worker alive; the others are unaffected
+                self.sequence_errors += 1
+                log.debug("worker %d iteration failed: %s", idx, e)
 
     # ------------------------------------------------------------ bookkeeping
     def _snapshot(self) -> tuple:
