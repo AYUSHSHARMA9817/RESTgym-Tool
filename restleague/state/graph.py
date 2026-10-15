@@ -36,6 +36,7 @@ class RelationalKnowledgeGraph:
     def __init__(self, seed: Optional[int] = None):
         self._nodes: dict[tuple[str, Any], EntityNode] = {}
         self._children: dict[tuple[str, Any], set[tuple[str, Any]]] = {}
+        self._parents: dict[tuple[str, Any], tuple[str, Any]] = {}
         self._edges: list[EntityEdge] = []
         self._rng = random.Random(seed)
         self._lock = threading.Lock()
@@ -43,7 +44,8 @@ class RelationalKnowledgeGraph:
     # ------------------------------------------------------------- mutation
     def add_entity(self, entity_type: str, entity_id: Any, attributes: Optional[dict] = None,
                     parent: Optional[tuple[str, Any]] = None, created_by_op: str = "",
-                    state: Optional[str] = None, relation: str = "owns") -> EntityNode:
+                    state: Optional[str] = None, relation: str = "owns",
+                    created_by_request: Optional[dict] = None) -> EntityNode:
         """Register (or update) an entity and link it to its parent node.
 
         ``parent`` is a (entity_type, entity_id) tuple, already normalised or
@@ -57,6 +59,7 @@ class RelationalKnowledgeGraph:
             if node is None:
                 node = EntityNode(entity_type=key[0], entity_id=entity_id, state=state,
                                    attributes=dict(attributes or {}), created_by_op=created_by_op,
+                                   created_by_request=created_by_request,
                                    timestamp=time.monotonic())
                 self._nodes[key] = node
             else:
@@ -65,12 +68,15 @@ class RelationalKnowledgeGraph:
                     node.state = state
                 node.deleted = False   # re-observing a "deleted" entity un-marks it (e.g. recreated)
 
+            if node.created_by_request is None and created_by_request is not None:
+                node.created_by_request = created_by_request
             if parent is not None:
                 pkey = (norm(singular(parent[0])), parent[1])
                 if pkey not in self._nodes:
                     self._nodes[pkey] = EntityNode(entity_type=pkey[0], entity_id=pkey[1],
                                                     timestamp=time.monotonic())
                 self._children.setdefault(pkey, set()).add(key)
+                self._parents[key] = pkey
                 self._edges.append(EntityEdge(parent=pkey, child=key, relation=relation))
             return node
 
@@ -190,6 +196,29 @@ class RelationalKnowledgeGraph:
         # recency-biased, like ResourcePool.lookup: prefer the most recently seen entity
         candidates.sort(key=lambda n: n.timestamp)
         return candidates[-1] if self._rng.random() < 0.7 else self._rng.choice(candidates)
+
+    def provenance(self, entity_type: str, entity_id: Any) -> list[dict]:
+        """The requests that created this entity and its ancestors, root first.
+
+        A violation on a deep operation cannot be demonstrated by itself: the
+        pet cannot be updated before its owner exists, and on a warm graph the
+        sequence that found the bug did not create either -- an earlier
+        sequence did. Replaying such a finding on a clean API produced nothing
+        but 404s until the reproduction carried this history with it.
+        """
+        key = (norm(singular(entity_type)), entity_id)
+        chain: list[dict] = []
+        seen: set = set()
+        with self._lock:
+            while key is not None and key not in seen:
+                seen.add(key)
+                node = self._nodes.get(key)
+                if node is None:
+                    break
+                if node.created_by_request:
+                    chain.append(node.created_by_request)
+                key = self._parents.get(key)
+        return list(reversed(chain))
 
     def live_types(self) -> set[str]:
         """Entity types with at least one entity that has not been deleted.

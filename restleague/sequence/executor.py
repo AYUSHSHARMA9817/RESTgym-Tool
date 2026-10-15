@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+from dataclasses import asdict
 import logging
 import random
 import re
@@ -100,8 +101,10 @@ def harvest_to_graph(rkg, op: Operation, req: Request, resp: Response) -> None:
     if entity_id is None:
         return
     attrs = resp.json if isinstance(resp.json, dict) else {}
+    from ..findings import RequestRecord
     rkg.add_entity(res_type, entity_id, attrs,
-                   parent=_parent_of(req, op, res_type), created_by_op=op.key)
+                   parent=_parent_of(req, op, res_type), created_by_op=op.key,
+                   created_by_request=asdict(RequestRecord.of(req)))
 
 
 class AsyncSequenceExecutor:

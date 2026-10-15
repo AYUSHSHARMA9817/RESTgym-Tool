@@ -28,6 +28,7 @@ ViolationTracker.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import time
@@ -36,10 +37,11 @@ from typing import Any, Callable, Optional
 
 from .engine.client import ApiClient, auth_from_env
 from .engine.faults import FaultTracker
-from .engine.pool import ResourcePool
-from .models import Mode, Operation, Sequence
+from .engine.pool import ResourcePool, resource_for_param
+from .models import Mode, Operation, Sequence, Step
 from .oracles import ALL_ORACLES
 from .oracles.base import OracleContext
+from .findings import FindingStore
 from .oracles.tracker import ViolationTracker
 from .sequence.executor import AsyncSequenceExecutor
 from .sequence.mutator import SequenceMutator
@@ -83,7 +85,8 @@ class TrackARunner:
                  seed: Optional[int] = None, generate_request: Optional[Callable] = None,
                  client: Optional[Any] = None, use_oracles: bool = True,
                  weights: Optional[Weights] = None, use_pool: bool = True,
-                 max_checks_per_op: Optional[int] = None, workers: int = 1):
+                 max_checks_per_op: Optional[int] = None, workers: int = 1,
+                 findings_file: Optional[str] = None, api: str = ""):
         self.ops = ops
         self.base_url = base_url
         self.budget = budget_seconds
@@ -107,6 +110,10 @@ class TrackARunner:
                                            static_priors=self.synth.target_priors())
         self.faults = FaultTracker()
         self.violations = ViolationTracker()
+        # Every recorded violation keeps the requests that produced it, so it
+        # can be replayed against a clean API and checked by someone who did
+        # not watch the run. Written out as findings arrive, not at the end.
+        self.findings = FindingStore(findings_file, api=api)
         self.workers = max(1, workers)
         self.active_workers = self.workers   # the allocator may resize this live
         self.oracles = [cls() for cls in ALL_ORACLES] if use_oracles else []
@@ -138,6 +145,7 @@ class TrackARunner:
             "ORACLE_WINDOW_SECONDS", max(15.0, min(300.0, budget_seconds / 12.0))))
         self._oracle_checks: dict[tuple, int] = {}
         self._oracle_window_start = time.monotonic()
+        self._history: list = []
 
     # ------------------------------------------------------------- the loop
     async def run_async(self) -> TrackAResult:
@@ -260,12 +268,16 @@ class TrackARunner:
 
     def _make_step_hook(self, ctx: OracleContext):
         """Returns the per-step callback the executor awaits after every step."""
+        history: list = []
+
         async def hook(step, op, is_last: bool) -> None:
+            history.append(step)
             if self.oracles:
-                await self._check_step(step, ctx, is_last)
+                await self._check_step(step, ctx, is_last, history)
         return hook
 
-    async def _check_step(self, step, ctx: OracleContext, is_last: bool) -> None:
+    async def _check_step(self, step, ctx: OracleContext, is_last: bool,
+                          history: Optional[list] = None) -> None:
         """Run the oracles against one step, immediately after it executed.
 
         Checking here rather than over the finished sequence is what makes
@@ -277,6 +289,7 @@ class TrackARunner:
         op_key = step.request.op_key
         one = Sequence(target_op_key=op_key)
         one.append(step)
+        self._history = history or [step]
         for oracle in self.oracles:
             if oracle.active and ctx.client is None:
                 continue
@@ -293,6 +306,7 @@ class TrackARunner:
                 continue
             for v in found:
                 if self.violations.record(v):
+                    self.findings.record(v, self._reproduction(step))
                     log.info("[%s] %s -- %s", v.oracle, v.op_key, v.summary)
 
     async def _reproduce(self, oracle, one: Sequence, ctx: OracleContext,
@@ -322,6 +336,41 @@ class TrackARunner:
                 self.unreproduced += 1
                 log.debug("[%s] %s did not reproduce: %s", v.oracle, v.op_key, v.summary)
         return confirmed
+
+    def _reproduction(self, step) -> Sequence:
+        """Everything needed to show this finding starting from nothing.
+
+        Two parts. First the requests that created the entities this step acts
+        on, which on a warm graph were issued by *earlier* sequences -- without
+        them a replay on a clean API is just a 404. Then this sequence's own
+        steps up to and including the offending one.
+        """
+        from .findings import RequestRecord
+
+        seq = Sequence(target_op_key=step.request.op_key)
+        here = [s for s in (self._history or [step])]
+        if step in here:
+            here = here[:here.index(step) + 1]
+        already = {id(s.request) for s in here}
+
+        seen: set = set()
+        for name, value in step.request.path_params.items():
+            etype = resource_for_param(step.request.path, name)
+            if not etype:
+                continue
+            for rec in self.rkg.provenance(etype, value):
+                marker = (rec.get("method"), rec.get("path"), json.dumps(rec.get("body"),
+                                                                         default=str, sort_keys=True))
+                if marker in seen:
+                    continue
+                seen.add(marker)
+                req = RequestRecord(**rec).build()
+                if id(req) in already:
+                    continue
+                seq.append(Step(request=req, response=None, bindings=dict(req.path_params)))
+        for s in here:
+            seq.append(s)
+        return seq
 
     def _take_budget(self, oracle_name: str, op_key: str) -> bool:
         """Per-(oracle, operation) check cap, refreshed every window.

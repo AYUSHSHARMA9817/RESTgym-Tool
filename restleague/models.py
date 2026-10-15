@@ -121,6 +121,7 @@ class EntityNode:
     state: Optional[str] = None         # inferred lifecycle state; filled in by a future DSMI
     attributes: dict = field(default_factory=dict)
     created_by_op: str = ""             # Operation.key that produced this entity
+    created_by_request: Optional[dict] = None   # the request that produced it, for replay
     timestamp: float = 0.0
     deleted: bool = False               # set by cascade_delete; kept around for stale-ref testing
 
