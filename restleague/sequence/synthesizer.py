@@ -68,11 +68,12 @@ class SequenceSynthesizer:
         if op.key in visiting:
             return                       # cycle in the dependency graph; stop here
         visiting.add(op.key)
+        live = self._live_keys(rkg)
         # sorted: consumed_keys returns a set, whose iteration order varies with
         # PYTHONHASHSEED. Without this the plan order changes between runs and a
         # seeded experiment stops being reproducible.
         for key in sorted(consumed_keys(op)):
-            if rkg is not None and rkg.has(type_of_resource_key(key)):
+            if any(keys_match(have, key) for have in live):
                 continue                 # already have a live entity of this type
             producer = self._producer_for(key)
             if producer is None or producer.key == op.key:
@@ -83,6 +84,25 @@ class SequenceSynthesizer:
             if not any(p.key == producer.key for p in plan):
                 plan.append(producer)
         visiting.discard(op.key)
+
+    @staticmethod
+    def _live_keys(rkg) -> set[str]:
+        """Resource keys the graph can already satisfy, in deps.py's key form.
+
+        Matched with ``keys_match`` rather than by equality because the two
+        names come from different places and do not always agree: the graph
+        names an entity after its path segment, the dependency analysis after
+        the parameter that refers to it. Against a live gestao-hospital that
+        gap meant a hospital already in the graph was never recognised, so
+        every sequence re-created one through a 2.26s endpoint and the whole
+        budget went on setup -- 159 requests in 90 seconds.
+        """
+        if rkg is None:
+            return set()
+        try:
+            return {t + "id" for t in rkg.live_types()}
+        except Exception:
+            return set()
 
     def _producer_for(self, key: str) -> Optional[Operation]:
         """Exact match first, then deps.py's fuzzy resource-key matching."""

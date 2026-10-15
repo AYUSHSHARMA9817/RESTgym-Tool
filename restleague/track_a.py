@@ -143,6 +143,7 @@ class TrackARunner:
                 mutation_name = self.scheduler.next_mutation()
                 attack_name = self.scheduler.next_attack()
                 before = self._snapshot()
+                seq_started = time.monotonic()
                 try:
                     plan = self.synth.synthesize(target, rkg=self.rkg)
                     mutation = None
@@ -167,6 +168,7 @@ class TrackARunner:
                     continue
                 self.sequences_run += 1
                 self._account(seq)
+                self.scheduler.note_cost(target.key, time.monotonic() - seq_started)
                 outcome = self._outcome(before, seq)
                 self.scheduler.update(target, mutation_name, outcome, attack=attack_name)
 

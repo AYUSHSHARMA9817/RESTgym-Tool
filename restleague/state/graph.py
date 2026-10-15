@@ -191,6 +191,19 @@ class RelationalKnowledgeGraph:
         candidates.sort(key=lambda n: n.timestamp)
         return candidates[-1] if self._rng.random() < 0.7 else self._rng.choice(candidates)
 
+    def live_types(self) -> set[str]:
+        """Entity types with at least one entity that has not been deleted.
+
+        Callers that match these against resource keys derived elsewhere should
+        compare with spec/deps.py's ``keys_match`` rather than by equality: the
+        two names are derived differently (a path segment here, a parameter
+        name there) and disagree whenever English pluralisation rules mis-fire,
+        e.g. the path ``/hospitais/`` yields "hospitai" while the parameter
+        ``hospital_id`` yields "hospital".
+        """
+        with self._lock:
+            return {n.entity_type for n in self._nodes.values() if not n.deleted}
+
     def has(self, entity_type: str, *, live_only: bool = True) -> bool:
         """Is at least one entity of this type known (and not deleted)?
 

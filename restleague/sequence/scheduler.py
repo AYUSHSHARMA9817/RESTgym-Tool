@@ -16,6 +16,7 @@ bugs are found, and the scheduler must notice and move on.
 """
 from __future__ import annotations
 
+import os
 import random
 from dataclasses import dataclass
 from typing import Optional
@@ -66,6 +67,7 @@ class SequenceScheduler:
         self.weights = weights or Weights()
         self.mutation_rate = mutation_rate
         self.attack_rate = attack_rate
+        self.slow_threshold = float(os.environ.get("SEQUENCE_SLOW_THRESHOLD", "0.5"))
         self.rng = random.Random(seed)
         self.target_bandit = Bandit(list(self.targets), c=0.7, seed=seed)
         self.mutation_bandit = Bandit(list(OPERATORS), c=0.8, gamma=0.99, seed=seed)
@@ -74,6 +76,8 @@ class SequenceScheduler:
         self.covered: set[str] = set()
         self.attempts: dict[str, int] = {k: 0 for k in self.targets}
         self.unreachable: dict[str, int] = {k: 0 for k in self.targets}
+        # rolling mean seconds per sequence, per target (see _weights)
+        self.cost: dict[str, float] = {}
 
     # ------------------------------------------------------------ choosing
     def next_target(self) -> Optional[Operation]:
@@ -96,6 +100,14 @@ class SequenceScheduler:
             if misses:
                 w *= 1.0 / (1.0 + 0.4 * misses)   # keeps failing to set up; back off
             w *= self.static_priors.get(key, 1.0)
+            # Back off targets whose sequences are slow. engine/strategy.py has
+            # had this since the start; without it a single slow endpoint eats
+            # the budget, because sequences run one at a time. Measured on
+            # gestao-hospital, POST /v1/hospitais/ took 2.26s against <10ms for
+            # every other operation and consumed the entire run.
+            secs = self.cost.get(key)
+            if secs and secs > self.slow_threshold:
+                w *= self.slow_threshold / secs
             out[key] = max(w, 0.02)
         return out
 
@@ -117,6 +129,11 @@ class SequenceScheduler:
         return self.attack_bandit.select()
 
     # ------------------------------------------------------------ learning
+    def note_cost(self, op_key: str, seconds: float) -> None:
+        """Record how long a sequence for this target took (exponential mean)."""
+        prev = self.cost.get(op_key)
+        self.cost[op_key] = seconds if prev is None else (0.7 * prev + 0.3 * seconds)
+
     def update(self, target: Operation, mutation: Optional[str], outcome: Outcome,
                attack: Optional[str] = None) -> float:
         reward = outcome.reward(self.weights)
