@@ -87,6 +87,18 @@ assert client.sent and client.sent[0].path_params["patientId"] == 1, \
     f"must read back entity 1 from the path, not 99 from the body: {client.sent[0].path_params}"
 print("OK   read-back uses the path id, not a different id echoed in the body")
 
+# ...but only on an item route. A POST to a nested *collection* ends in a
+# literal segment, so its trailing path parameter is the PARENT; the new
+# entity's id is the one the server returns.
+from restleague.oracles.crud import _entity_id
+create_nested = Request("POST", "/owners/{ownerId}/pets", path_params={"ownerId": 7},
+                        body={"name": "Leo"})
+assert _entity_id(Response(status=201, json={"id": 42, "name": "Leo"}),
+                  create_nested) == 42, "a nested create must use the created id, not the parent's"
+item = Request("PUT", "/owners/{ownerId}", path_params={"ownerId": 7}, body={"name": "x"})
+assert _entity_id(Response(status=200, json={"id": 99}), item) == 7
+print("OK   nested collection creates use the created id, item routes use the path")
+
 
 # ----------------------------------------------------- reproduction pass
 class Flaky(BuggyApi):

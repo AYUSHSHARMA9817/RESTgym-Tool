@@ -206,9 +206,15 @@ def _entity_id(resp, req: Request) -> Any:
     "name: sent 'Hiro', read back 'beta302'" -- beta302 being a value this
     tool had generated for an unrelated product.
     """
-    params = _PARAM_RE.findall(req.path)
-    if params and params[-1] in req.path_params:
-        return req.path_params[params[-1]]
+    # Item route only: the path must *end* in a parameter. Testing merely that
+    # the path contains one treats POST /owners/{ownerId}/pets as item-level
+    # and returns the owner's id for the newly created pet, which then reads
+    # back a different entity entirely.
+    last = req.path.rstrip("/").rsplit("/", 1)[-1]
+    if _PARAM_RE.fullmatch(last):
+        name = last[1:-1]
+        if name in req.path_params:
+            return req.path_params[name]
     if isinstance(resp.json, dict):
         for k in ("id", "Id", "ID", "_id", "uuid"):
             v = resp.json.get(k)
