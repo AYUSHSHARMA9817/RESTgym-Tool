@@ -59,6 +59,7 @@ class TrackAResult:
     operations_total: int
     sequences_run: int
     sequence_errors: int
+    unreproduced: int
     total_requests: int
     elapsed: float
     faults: dict = field(default_factory=dict)
@@ -70,9 +71,10 @@ class TrackAResult:
 
     def describe(self) -> str:
         errs = f" errors={self.sequence_errors}" if self.sequence_errors else ""
+        unrep = f" unreproduced={self.unreproduced}" if self.unreproduced else ""
         return (f"sequences={self.sequences_run}{errs} requests={self.total_requests} "
                 f"unique5xx={self.unique_5xx} violations={self.unique_violations} "
-                f"covered={self.operations_covered}/{self.operations_total} "
+                f"covered={self.operations_covered}/{self.operations_total}{unrep} "
                 f"in {self.elapsed:.0f}s")
 
 
@@ -123,6 +125,7 @@ class TrackARunner:
         self.sequences_run = 0
         self.sequence_errors = 0
         self.steps_sent = 0   # sequence steps issued (excludes oracle probes)
+        self.unreproduced = 0 # findings dropped because a re-check did not confirm them
         self._seen_transitions: set = set()
         # how many times each oracle may check each operation (see _take_budget)
         self.max_checks_per_op = (max_checks_per_op if max_checks_per_op is not None
@@ -235,7 +238,15 @@ class TrackARunner:
                 self.faults.record(req.op_key, req, resp)
             if resp.ok:
                 self.scheduler.mark_covered(req.op_key)
-                if self.pool is not None:
+                # Never harvest from a request we deliberately corrupted. The
+                # pool feeds later request generation, so an accepted attack
+                # payload -- an injection string, a boundary value, the
+                # mass-assignment oracle's "role": "superadmin" -- would be
+                # reused as if it were a realistic value. Measured on
+                # gestao-hospital, a pool polluted this way pushed the engine
+                # from 63 of 145 responses being 2XX to 28 of 236, and its
+                # coverage from 17/20 to 5/20.
+                if self.pool is not None and not req.mutation:
                     op = self.ops_by_key.get(req.op_key)
                     if op is not None:
                         try:
@@ -275,12 +286,42 @@ class TrackARunner:
                 continue
             try:
                 found = await oracle.check(one, ctx)
+                if found and ctx.verify:
+                    found = await self._reproduce(oracle, one, ctx, found)
             except Exception as e:
                 log.debug("oracle %s failed: %s", oracle.name, e)
                 continue
             for v in found:
                 if self.violations.record(v):
                     log.info("[%s] %s -- %s", v.oracle, v.op_key, v.summary)
+
+    async def _reproduce(self, oracle, one: Sequence, ctx: OracleContext,
+                         found: list) -> list:
+        """Re-run a check and keep only the findings that fire again.
+
+        A finding that does not reproduce was a coincidence -- a value that
+        happened to differ once, a request that happened to be slow. Checking
+        twice and intersecting by signature costs one extra probe per finding
+        and applies to every oracle at once, instead of patching each flaky
+        case as it is discovered. It does not catch *deterministic* false
+        positives, which is what the tolerance helpers in oracles/base.py are
+        for; the two are complementary.
+        """
+        try:
+            again = await oracle.check(one, ctx)
+        except Exception as e:
+            log.debug("oracle %s failed on re-check: %s", oracle.name, e)
+            return []
+        seen = {self.violations.signature(v) for v in again}
+        confirmed = []
+        for v in found:
+            if self.violations.signature(v) in seen:
+                v.evidence["reproduced"] = True
+                confirmed.append(v)
+            else:
+                self.unreproduced += 1
+                log.debug("[%s] %s did not reproduce: %s", v.oracle, v.op_key, v.summary)
+        return confirmed
 
     def _take_budget(self, oracle_name: str, op_key: str) -> bool:
         """Per-(oracle, operation) check cap, refreshed every window.
@@ -328,6 +369,7 @@ class TrackARunner:
             operations_total=len(self.ops),
             sequences_run=self.sequences_run,
             sequence_errors=self.sequence_errors,
+            unreproduced=self.unreproduced,
             total_requests=getattr(self._client, "total_requests", 0),
             elapsed=elapsed,
             faults=self.faults.summary(),

@@ -26,7 +26,7 @@ import copy
 from typing import Any, Optional
 
 from ..models import OracleViolation, Request, Sequence
-from .base import Oracle, OracleContext
+from .base import Oracle, OracleContext, values_equivalent
 from .crud import _entity_id, bind_item_path, find_item_get
 
 #: Fields worth trying: privilege, ownership and money. Values are chosen to be
@@ -120,7 +120,8 @@ class MassAssignmentOracle(Oracle):
         self._source = "write response"
         body = written.json if isinstance(written.json, dict) else None
         if body is not None and any(k in body for k in extras):
-            return [k for k, v in extras.items() if k in body and body[k] == v]
+            return [k for k, v in extras.items()
+                    if k in body and values_equivalent(v, body[k])]
 
         get_op = find_item_get(ctx, op)
         if get_op is None:
@@ -135,4 +136,5 @@ class MassAssignmentOracle(Oracle):
         if not got.ok or not isinstance(got.json, dict):
             return []
         self._source = get_op.key
-        return [k for k, v in extras.items() if k in got.json and got.json[k] == v]
+        return [k for k, v in extras.items()
+                if k in got.json and values_equivalent(v, got.json[k])]

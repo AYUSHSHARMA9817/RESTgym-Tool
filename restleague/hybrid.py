@@ -105,10 +105,11 @@ async def _run_sequential(ops: list[Operation], budget_seconds: float, base_url:
     pool) let the engine's slow requests squeeze Track A down to 1,022 requests
     on one seed, against roughly 20,000 on the others.
 
-    Track A runs first so the engine inherits a warm ResourcePool: the graph
-    knows which ids exist and how they relate, and the engine would otherwise
-    guess and collect 404s. That was the whole point of sharing state, and it
-    never required the two to run at the same time.
+    The halves do not share a ResourcePool. That sharing was the original
+    rationale for a hybrid at all, but it measured badly: the pool is keyed by
+    field name rather than by operation, so a value accepted for one operation
+    gets handed to another whose schema rejects it, and the engine's coverage
+    fell from 14/20 to 7/20. What combines is the findings, not the state.
     """
     own_clients = client is None
     timeout = float(os.environ.get("REQUEST_TIMEOUT", "10"))
@@ -119,7 +120,15 @@ async def _run_sequential(ops: list[Operation], budget_seconds: float, base_url:
                           client=track_client, workers=track_workers)
     strat = Strategy(ops, base_url, budget_seconds=budget_seconds, workers=workers,
                      seed=seed, client=engine_client)
-    runner.pool = strat.pool          # filled by phase 1, consumed by phase 2
+    # Each half keeps its own ResourcePool. Sharing one looked like the whole
+    # point -- the engine guesses ids, the graph knows them -- but measured on
+    # gestao-hospital it made the engine markedly worse: coverage 7/20 against
+    # 14/20 with separate pools, and 134 of its responses were 400 rather than
+    # 63. A pool is keyed by field name, not by operation, so a value Track A
+    # saw accepted for one operation is handed to another whose schema rejects
+    # it. Track A's attack payloads made this worse still (now filtered at the
+    # harvest), but ordinary values contaminate it too. The halves are
+    # independent; only their findings are combined.
 
     start = time.monotonic()
     try:

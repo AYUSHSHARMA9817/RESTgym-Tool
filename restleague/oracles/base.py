@@ -12,6 +12,7 @@ comparison, so an oracle only ever compares what the client actually controls.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from ..engine.pool import norm
@@ -105,6 +106,75 @@ def _short(v: Any, limit: int = 60) -> str:
     return s if len(s) <= limit else s[:limit] + "..."
 
 
+def _as_number(v: Any) -> Optional[float]:
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, str):
+        try:
+            return float(v.strip())
+        except ValueError:
+            return None
+    return None
+
+
+def _as_bool(v: Any) -> Optional[bool]:
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str) and v.strip().lower() in ("true", "false"):
+        return v.strip().lower() == "true"
+    return None
+
+
+def _as_instant(v: Any) -> Optional[datetime]:
+    """Parse an ISO-8601 date/time, normalised to a comparable UTC instant."""
+    if not isinstance(v, str) or not (8 <= len(v) <= 40):
+        return None
+    s = v.strip().replace("Z", "+00:00").replace("z", "+00:00")
+    # "+0000" -> "+00:00"; fromisoformat wants the colon before 3.11
+    if len(s) > 5 and s[-5] in "+-" and s[-3] != ":":
+        s = s[:-2] + ":" + s[-2:]
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
+
+def values_equivalent(sent: Any, got: Any) -> bool:
+    """Is ``got`` the same value as ``sent``, allowing for server normalisation?
+
+    A server is entitled to re-encode what it stores, and comparing raw
+    representations reports that as data loss. Against a live gestao-hospital
+    this produced "birthDate: sent '2026-10-15T16:02:41Z', read back
+    '2026-10-15T16:02:41.000+0000'" -- the same instant in two ISO-8601
+    spellings, on an API doing nothing wrong.
+
+    Equivalent here means: identical; the same number however spelled
+    (``5`` / ``"5"`` / ``"5.0"``); the same boolean (``True`` / ``"true"``);
+    the same instant in any ISO-8601 form; or the same string ignoring
+    surrounding whitespace. Case is *not* folded -- a server that silently
+    upper-cases a name has changed the data, and that is worth reporting.
+    """
+    if sent == got:
+        return True
+    a, b = _as_number(sent), _as_number(got)
+    if a is not None and b is not None:
+        return a == b
+    a, b = _as_bool(sent), _as_bool(got)
+    if a is not None and b is not None:
+        return a == b
+    a, b = _as_instant(sent), _as_instant(got)
+    if a is not None and b is not None:
+        return a == b
+    if isinstance(sent, str) and isinstance(got, str):
+        return sent.strip() == got.strip()
+    return False
+
+
 def response_schema(op: Operation, status: int) -> dict:
     """The declared schema for this status, falling back to the 2XX default."""
     responses = op.responses or {}
@@ -126,6 +196,7 @@ class OracleContext:
     # per zombie check and measurably starved sequence throughput; 0.05s still
     # absorbs the replica lag this is meant to tolerate, at a seventh the cost.
     zombie_backoff: float = 0.05
+    verify: bool = True             # re-run a check before reporting (see _check_step)
     enabled: bool = True
 
     def op(self, key: str) -> Optional[Operation]:

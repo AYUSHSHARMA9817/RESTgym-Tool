@@ -21,7 +21,8 @@ from typing import Any, Optional
 
 from ..engine.pool import norm, resource_of
 from ..models import Operation, OracleViolation, Request, Sequence, Step
-from .base import Oracle, OracleContext, is_volatile, readonly_fields, state_diff
+from .base import (Oracle, OracleContext, is_volatile, readonly_fields, state_diff,
+                   values_equivalent)
 
 _PARAM_RE = re.compile(r"\{([^}]+)\}")
 _GONE = (404, 410)
@@ -130,7 +131,7 @@ class CrudRoundtripOracle(Oracle):
                     continue
                 if k not in got.json:
                     missing.append(k)
-                elif got.json[k] != v and str(got.json[k]) != str(v):
+                elif not values_equivalent(v, got.json[k]):
                     wrong.append(f"{k}: sent {v!r}, read back {got.json[k]!r}")
             if wrong:
                 out.append(self.violation(
