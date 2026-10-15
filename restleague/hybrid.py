@@ -52,6 +52,9 @@ from .track_a import TrackARunner
 log = logging.getLogger("restleague.hybrid")
 
 DEFAULT_WARMUP_FRACTION = 0.10
+# "sequential": each half gets its own full budget, run one after the other.
+# "parallel": both share a single budget (use when wall-clock time is capped).
+DEFAULT_MODE = os.environ.get("HYBRID_MODE", "sequential")
 
 
 @dataclass
@@ -79,6 +82,63 @@ class HybridResult:
                 f"unique5xx={self.unique_5xx} violations={self.unique_violations} "
                 f"covered={self.operations_covered}/{self.operations_total} "
                 f"in {self.elapsed:.0f}s")
+
+
+async def _run_sequential(ops: list[Operation], budget_seconds: float, base_url: str, *,
+                          seed: Optional[int] = None, workers: int = 6,
+                          client: Optional[Any] = None,
+                          track_workers: int = 1) -> HybridResult:
+    """Track A for a full budget, then the engine for a full budget, unioned.
+
+    Preferred when no single wall-clock budget has to cover both halves, which
+    is the usual case outside a competition run. It is simpler and finds more
+    than the parallel arrangement, for two reasons.
+
+    Every oracle stays valid. Six of the eight conclude by comparing two
+    observations, so concurrent traffic from the other half makes them report
+    bugs that are not there; the parallel mode therefore stands them down for
+    all but its warm-up. Running alone, Track A keeps the full set for its
+    entire phase -- and on gestao-hospital those six produced most of the 14
+    semantic findings.
+
+    Neither half starves the other. Sharing an API (and previously a connection
+    pool) let the engine's slow requests squeeze Track A down to 1,022 requests
+    on one seed, against roughly 20,000 on the others.
+
+    Track A runs first so the engine inherits a warm ResourcePool: the graph
+    knows which ids exist and how they relate, and the engine would otherwise
+    guess and collect 404s. That was the whole point of sharing state, and it
+    never required the two to run at the same time.
+    """
+    own_clients = client is None
+    timeout = float(os.environ.get("REQUEST_TIMEOUT", "10"))
+    track_client = client or ApiClient(base_url, auth=auth_from_env(), timeout=timeout)
+    engine_client = client or ApiClient(base_url, auth=auth_from_env(), timeout=timeout)
+
+    runner = TrackARunner(ops, base_url, budget_seconds=budget_seconds, seed=seed,
+                          client=track_client, workers=track_workers)
+    strat = Strategy(ops, base_url, budget_seconds=budget_seconds, workers=workers,
+                     seed=seed, client=engine_client)
+    runner.pool = strat.pool          # filled by phase 1, consumed by phase 2
+
+    start = time.monotonic()
+    try:
+        log.info("hybrid/sequential: phase 1 -- Track A, %.0fs, %d oracle(s)",
+                 budget_seconds, len(runner.oracles))
+        await runner.run_async()
+        log.info("hybrid/sequential: phase 1 done -- %d sequences, %d unique 5XX, "
+                 "%d violations, pool=%d, graph=%d",
+                 runner.sequences_run, runner.faults.unique, runner.violations.unique,
+                 strat.pool.size(), runner.rkg.size())
+
+        log.info("hybrid/sequential: phase 2 -- engine, %.0fs, on the warm pool",
+                 budget_seconds)
+        await strat.run_async()
+    finally:
+        if own_clients:
+            await track_client.close()
+            await engine_client.close()
+    return _merge(runner, strat, ops, time.monotonic() - start)
 
 
 async def _allocate(strat: Strategy, runner: TrackARunner, deadline: float, *,
@@ -125,8 +185,18 @@ async def run_hybrid_async(ops: list[Operation], budget_seconds: float, base_url
                            seed: Optional[int] = None,
                            warmup_fraction: float = DEFAULT_WARMUP_FRACTION,
                            workers: int = 6, client: Optional[Any] = None,
-                           adaptive: bool = True) -> HybridResult:
-    """``client``, when given, is used by both halves (tests only)."""
+                           adaptive: bool = True, mode: str = DEFAULT_MODE,
+                           track_workers: int = 1) -> HybridResult:
+    """Run both halves and union their findings.
+
+    ``mode="sequential"`` (the default) gives each half its own full ``budget_seconds``
+    one after the other; ``mode="parallel"`` runs them together inside a single
+    budget. ``client``, when given, is used by both halves (tests only).
+    """
+    if mode == "sequential":
+        return await _run_sequential(ops, budget_seconds, base_url, seed=seed,
+                                     workers=workers, client=client,
+                                     track_workers=track_workers)
     own_clients = client is None
     timeout = float(os.environ.get("REQUEST_TIMEOUT", "10"))
     # Separate clients: sharing one meant the two halves also shared a
@@ -237,7 +307,11 @@ def _merge(runner: TrackARunner, strat: Strategy, ops: list[Operation],
 
 def run_hybrid(ops: list[Operation], budget_seconds: float = 3600,
                base_url: str = "http://localhost:8080", **kwargs) -> HybridResult:
-    """Synchronous entry point, mirroring engine.strategy.run and run_track_a."""
+    """Synchronous entry point, mirroring engine.strategy.run and run_track_a.
+
+    Defaults to sequential mode, so ``budget_seconds`` is the budget *per half*
+    and the call takes about twice that in wall-clock time.
+    """
     return asyncio.run(run_hybrid_async(ops, budget_seconds, base_url, **kwargs))
 
 

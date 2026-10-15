@@ -96,4 +96,32 @@ async def end_to_end():
 
 
 asyncio.run(end_to_end())
+
+
+# ------------------------------------------- sequential vs parallel modes
+async def modes():
+    # Sequential is the default: each half gets its own full budget, so the
+    # call takes about twice budget_seconds in wall-clock time.
+    seq = await run_hybrid_async(OPS, budget_seconds=1.0, base_url="http://fake",
+                                 seed=3, client=HybridApi(), mode="sequential")
+    par = await run_hybrid_async(OPS, budget_seconds=1.0, base_url="http://fake",
+                                 seed=3, client=HybridApi(), mode="parallel",
+                                 warmup_fraction=0.3)
+    print()
+    print("sequential:", seq.describe())
+    print("parallel  :", par.describe())
+    assert seq.total_requests > 0 and par.total_requests > 0
+
+    # The point of sequential mode: nothing else is mutating the API while
+    # Track A runs, so the comparison-based oracles stay valid for its whole
+    # phase instead of only a short warm-up.
+    solo = TrackARunner(OPS, "http://fake", client=HybridApi(), workers=1)
+    assert len(solo.oracles) == 8, [o.name for o in solo.oracles]
+    concurrent = TrackARunner(OPS, "http://fake", client=HybridApi(), workers=4)
+    assert len(concurrent.oracles) == 2, [o.name for o in concurrent.oracles]
+    print(f"OK   sequential keeps all {len(solo.oracles)} oracles; "
+          f"concurrent keeps {len(concurrent.oracles)} (the parallel-safe ones)")
+
+
+asyncio.run(modes())
 print("ALL CHECKS PASSED")
