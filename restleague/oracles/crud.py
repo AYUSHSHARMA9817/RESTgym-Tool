@@ -61,6 +61,17 @@ def bind_item_path(get_op: Operation, source: Request, entity_id: Any) -> Option
     return Request(method="GET", path=get_op.path, path_params=path_params, op_key=get_op.key)
 
 
+def _declared_response_fields(get_op: Operation):
+    """Property names the GET's 2XX response schema declares, or None if it
+    declares no object shape (then we cannot use it to narrow the check)."""
+    for status, schema in (get_op.responses or {}).items():
+        if status.startswith("2") and isinstance(schema, dict):
+            props = schema.get("properties")
+            if props:
+                return set(props.keys())
+    return None
+
+
 def _identity_fields(op: Operation) -> set[str]:
     """Normalised body field names that name the entity itself, not its data.
 
@@ -125,10 +136,18 @@ class CrudRoundtripOracle(Oracle):
                 continue
             ro = readonly_fields(op.request_body.schema if op.request_body else None)
             identity = _identity_fields(op)
+            # Fields the read endpoint's own response schema declares. A write
+            # field the read never promises to return is out of scope: crAPI
+            # takes `file` on upload and returns `video`/`video_name`, so a
+            # read-back check must not demand `file` back -- the contract renamed
+            # it. Only enforce when the GET declares a response shape at all.
+            returnable = _declared_response_fields(get_op)
             missing, wrong = [], []
             for k, v in sent.items():
                 if k in ro or norm(k) in identity:
                     continue
+                if returnable is not None and k not in returnable:
+                    continue             # the read never claims to return this field
                 if k not in got.json:
                     missing.append(k)
                 elif not values_equivalent(v, got.json[k]):

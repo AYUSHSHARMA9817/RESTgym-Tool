@@ -31,8 +31,10 @@ owners = Operation("POST", "/owners", request_body=RequestBody(schema={
     responses={"201": {"properties": {"id": {"type": "integer"}, "firstName": {"type": "string"}}}})
 owner_item = Operation("GET", "/owners/{ownerId}",
                        parameters=[Parameter("ownerId", "path", True, {"type": "integer"})],
-                       responses={"200": {"properties": {"id": {"type": "integer"},
-                                                         "firstName": {"type": "string"}}}})
+                       responses={"200": {"properties": {  # a real owner-GET returns the whole object
+                           "id": {"type": "integer"}, "firstName": {"type": "string"},
+                           "lastName": {"type": "string"}, "address": {"type": "string"},
+                           "city": {"type": "string"}, "telephone": {"type": "string"}}}})
 owner_put = Operation("PUT", "/owners/{ownerId}",
                       parameters=[Parameter("ownerId", "path", True, {"type": "integer"})],
                       responses={"200": {"properties": {"id": {"type": "integer"}}}})
@@ -175,6 +177,23 @@ ctx_id = OracleContext(ops=ID_OPS, client=ScriptedClient(
 assert asyncio.run(CrudRoundtripOracle().check(seq_id, ctx_id)) == [], \
     "the path id wins on an item route; a differing body id is not a bug"
 print("OK   crud oracle ignores a body id overridden by the path (real-API false positive)")
+
+# Found on crAPI: POST /videos takes `file`, but the item GET's response schema
+# returns `video`/`video_name` -- the contract renames it. A write field the
+# read never promises to return must not be flagged as "not persisted".
+up = Operation("POST", "/videos", request_body=RequestBody(schema={"properties": {"file": {}}}),
+               responses={"201": {"properties": {"id": {"type": "integer"}}}})
+vget = Operation("GET", "/videos/{video_id}",
+                 parameters=[Parameter("video_id", "path", True, {"type": "integer"})],
+                 responses={"200": {"properties": {"id": {"type": "integer"},
+                                                   "video_name": {"type": "string"}}}})
+VID_OPS = {o.key: o for o in (up, vget)}
+up_req = Request("POST", "/videos", body={"file": "clip.mp4"}, op_key=up.key)
+vseq = seq_of(Step(up_req, Response(status=201, json={"id": 1})))
+vctx = OracleContext(ops=VID_OPS, client=ScriptedClient([Response(status=200, json={"id": 1, "video_name": "clip"})]))
+assert asyncio.run(CrudRoundtripOracle().check(vseq, vctx)) == [], \
+    "a field the read endpoint does not declare must not be a round-trip finding"
+print("OK   crud oracle ignores a written field the read contract never returns (crAPI file->video)")
 
 
 # ------------------------------------------- attribution (regression test)

@@ -55,6 +55,43 @@ APIS = {
 }
 
 
+_CRAPI_COMPOSE = os.environ.get(
+    "RL_CRAPI_COMPOSE",
+    os.path.join(os.path.dirname(__file__), "..", "..", "crapi", "docker-compose.yml"))
+
+APIS["crapi"] = {
+    # OWASP crAPI: a deliberately-vulnerable multi-container stack, the standard
+    # benchmark for the auth bug classes this tool now covers (BOLA/BFLA/mass
+    # assignment). Launched via docker compose; `up --wait crapi-web` pulls in
+    # identity/community/workshop/postgres/mongo/mailhog through depends_on and
+    # leaves the heavy ML services (chatbot, chromadb) off.
+    "port": 8888, "probe": "/",
+    "compose": os.path.abspath(_CRAPI_COMPOSE), "compose_up": ["crapi-web"],
+    "fast_verify": True,          # too heavy to restart per finding; verify live
+    # crAPI ships no seeded users, so create the two login identities first
+    "signup": [
+        {"path": "/identity/api/auth/signup",
+         "body": {"name": "RL Primary", "email": "rl-primary@example.com",
+                  "number": "4085551001", "password": "RLeague123!"}},
+        {"path": "/identity/api/auth/signup",
+         "body": {"name": "RL Alt", "email": "rl-alt@example.com",
+                  "number": "4085551002", "password": "RLeague123!"}},
+    ],
+    "auth": {
+        "AUTH_LOGIN_PATH": "/identity/api/auth/login",
+        "AUTH_LOGIN_BODY": '{"email": "rl-primary@example.com", "password": "RLeague123!"}',
+        "AUTH_TOKEN_FIELD": "token", "AUTH_TOKEN_HEADER": "Authorization",
+        "AUTH_TOKEN_PREFIX": "Bearer ",
+    },
+    "alt_auth": {
+        "AUTH_LOGIN_PATH": "/identity/api/auth/login",
+        "AUTH_LOGIN_BODY": '{"email": "rl-alt@example.com", "password": "RLeague123!"}',
+        "AUTH_TOKEN_FIELD": "token", "AUTH_TOKEN_HEADER": "Authorization",
+        "AUTH_TOKEN_PREFIX": "Bearer ",
+    },
+}
+
+
 def auth_for(api: str):
     """The primary identity's auth provider for `api`, or None. Built from the
     per-API config so concurrent campaigns on different APIs do not share one
@@ -75,11 +112,29 @@ def _provider(spec):
     return auth_from_env(spec)
 
 
+def fast_verify(api: str) -> bool:
+    """True when findings should be re-checked against the live instance rather
+    than a freshly restarted one. For a heavy multi-container stack (crAPI) a
+    full restart per finding would take minutes each; replay still re-derives
+    ids, so the main soundness holds, we only trade away the clean-slate rigor."""
+    return bool(APIS.get(api, {}).get("fast_verify"))
+
+
 def _docker(*args, check=True):
     return subprocess.run(["docker", *args], check=check, capture_output=True, text=True)
 
 
+def _compose(conf, *args, check=True):
+    return subprocess.run(["docker", "compose", "-f", conf["compose"], *args],
+                          check=check, capture_output=True, text=True)
+
+
 def stop(api: str) -> None:
+    conf = APIS.get(api, {})
+    if conf.get("compose"):
+        # -v wipes the data volumes so each start is clean state
+        _compose(conf, "down", "-v", "--remove-orphans", check=False)
+        return
     _docker("rm", "-f", f"rl-{api}", f"rl-{api}-db", check=False)
 
 
@@ -98,6 +153,17 @@ def start(api: str, attempts: int = 3) -> str:
 def _start_once(api: str) -> str:
     conf = APIS[api]
     stop(api)
+
+    if conf.get("compose"):
+        # Multi-container stack (crAPI). `up --wait` blocks on the services'
+        # own healthchecks, so the base URL is live when this returns. The
+        # listed services pull in their depends_on chain; heavy extras
+        # (chatbot, chromadb) are left out by simply not naming them.
+        _compose(conf, "up", "-d", "--wait", *conf.get("compose_up", []))
+        base = f"http://localhost:{conf['port']}"
+        _run_setup(base, conf)
+        return base
+
     _docker("network", "create", NETWORK, check=False)
 
     if conf.get("image"):
@@ -129,10 +195,26 @@ def _start_once(api: str) -> str:
         time.sleep(1)
     else:
         raise RuntimeError(f"{api} did not start")
-    # some targets need a one-shot seeding call before each round
+    _run_setup(base, conf)
+    return base
+
+
+def _run_setup(base: str, conf: dict) -> None:
+    """Per-round seeding. ``setup`` is a GET to hit (e.g. VAmPI's /createdb);
+    ``signup`` is a list of {path, body} to POST so the login users exist before
+    the auth providers try to log in (crAPI has no pre-seeded users)."""
+    import json as _json
     if conf.get("setup"):
         try:
-            urllib.request.urlopen(base + conf["setup"], timeout=10).read()
+            urllib.request.urlopen(base + conf["setup"], timeout=15).read()
         except Exception:
             pass
-    return base
+    for entry in conf.get("signup", []):
+        try:
+            data = _json.dumps(entry["body"]).encode()
+            req = urllib.request.Request(base + entry["path"], data=data,
+                                         headers={"Content-Type": "application/json"},
+                                         method="POST")
+            urllib.request.urlopen(req, timeout=15).read()
+        except Exception:
+            pass          # already-registered (409) is fine; login will still work

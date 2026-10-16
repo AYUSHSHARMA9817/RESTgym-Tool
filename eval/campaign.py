@@ -42,7 +42,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from eval.apis import APIS, alt_auth_for, auth_for, start, stop                          # noqa: E402
+from eval.apis import APIS, alt_auth_for, auth_for, fast_verify, start, stop                          # noqa: E402
 from restleague.engine.client import ApiClient                   # noqa: E402
 from restleague.engine.strategy import Strategy                   # noqa: E402
 from restleague.findings import verify                           # noqa: E402
@@ -153,8 +153,13 @@ class Campaign:
             if STOP:
                 break
             try:
-                stop(api)
-                vbase = start(api)                 # a clean container per finding
+                if fast_verify(api):
+                    # heavy stack (crAPI): re-check against the running instance
+                    # rather than paying a full restart per finding
+                    vbase = f"http://localhost:{APIS[api]['port']}"
+                else:
+                    stop(api)
+                    vbase = start(api)             # a clean container per finding
                 vclient = ApiClient(vbase, timeout=10.0, auth=auth_for(api))
                 # the authorization oracles replay through extra clients, so the
                 # verify step needs them too or those findings never reproduce
