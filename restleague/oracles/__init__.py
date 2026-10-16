@@ -6,6 +6,7 @@ that silently don't persist, responses that violate the declared schema.
 
 Additive: nothing in the competition entry point imports this package.
 """
+from .authn import CrossUserAccessOracle, MissingAuthOracle
 from .authorization import CrossEntityAccessOracle
 from .base import Oracle, OracleContext, stable_view, state_diff
 from .conformance import SchemaConformanceOracle
@@ -16,6 +17,8 @@ from .massassign import MassAssignmentOracle
 ALL_ORACLES = (
     SchemaConformanceOracle,
     CrossEntityAccessOracle,
+    CrossUserAccessOracle,
+    MissingAuthOracle,
     MassAssignmentOracle,
     CrudRoundtripOracle,
     ZombieResourceOracle,

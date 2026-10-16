@@ -116,7 +116,7 @@ async def modes():
     # Track A runs, so the comparison-based oracles stay valid for its whole
     # phase instead of only a short warm-up.
     solo = TrackARunner(OPS, "http://fake", client=HybridApi(), workers=1)
-    assert len(solo.oracles) == 8, [o.name for o in solo.oracles]
+    assert len(solo.oracles) == 10, [o.name for o in solo.oracles]
     concurrent = TrackARunner(OPS, "http://fake", client=HybridApi(), workers=4)
     assert len(concurrent.oracles) == 2, [o.name for o in concurrent.oracles]
     print(f"OK   sequential keeps all {len(solo.oracles)} oracles; "

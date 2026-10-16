@@ -189,6 +189,13 @@ class OracleContext:
     """Everything an oracle may need beyond the sequence itself."""
     ops: dict[str, Operation] = field(default_factory=dict)   # Operation.key -> Operation
     client: Any = None              # engine.client.ApiClient; required by active oracles
+    # Extra clients the authorization oracles need. unauth_client carries no
+    # credentials (for "is this protected endpoint actually enforcing auth?");
+    # alt_client is authenticated as a *different* user (for "can user B reach
+    # user A's resource?"). Absent when the API has no auth configured, in which
+    # case those oracles skip.
+    unauth_client: Any = None
+    alt_client: Any = None
     rkg: Any = None                 # RelationalKnowledgeGraph, when available
     zombie_retries: int = 3         # bounded re-reads before flagging a zombie (eventual consistency)
     # Seconds, doubled per retry. Deliberately small: the loop is sequential,

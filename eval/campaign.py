@@ -42,7 +42,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from eval.apis import APIS, auth_for, start, stop                          # noqa: E402
+from eval.apis import APIS, alt_auth_for, auth_for, start, stop                          # noqa: E402
 from restleague.engine.client import ApiClient                   # noqa: E402
 from restleague.engine.strategy import Strategy                   # noqa: E402
 from restleague.findings import verify                           # noqa: E402
@@ -127,10 +127,19 @@ class Campaign:
 
         base = start(api)
         client = ApiClient(base, timeout=10.0, auth=auth_for(api))
+        # Extra clients for the authorization oracles: one with no credentials,
+        # one authenticated as a second user. Only built when the API has auth.
+        unauth = ApiClient(base, timeout=10.0) if auth_for(api) else None
+        alt_prov = alt_auth_for(api)
+        alt = ApiClient(base, timeout=10.0, auth=alt_prov) if alt_prov else None
         runner = TrackARunner(ops, base, budget_seconds=self.budget, seed=seed,
-                              client=client, findings_file=self.findings_path, api=api)
+                              client=client, findings_file=self.findings_path, api=api,
+                              unauth_client=unauth, alt_client=alt)
         res = await runner.run_async()
         await client.close()
+        for c in (unauth, alt):
+            if c is not None:
+                await c.close()
         self.log(f"{api} seed={seed}: {res.describe()}")
         self._note_crashes(api, res.faults)
 
@@ -147,9 +156,18 @@ class Campaign:
                 stop(api)
                 vbase = start(api)                 # a clean container per finding
                 vclient = ApiClient(vbase, timeout=10.0, auth=auth_for(api))
+                # the authorization oracles replay through extra clients, so the
+                # verify step needs them too or those findings never reproduce
+                vunauth = ApiClient(vbase, timeout=10.0) if auth_for(api) else None
+                valt_prov = alt_auth_for(api)
+                valt = ApiClient(vbase, timeout=10.0, auth=valt_prov) if valt_prov else None
                 ok = await verify(f, by_key, vclient,
-                                  {cls.name: cls() for cls in ALL_ORACLES})
+                                  {cls.name: cls() for cls in ALL_ORACLES},
+                                  unauth_client=vunauth, alt_client=valt)
                 await vclient.close()
+                for c in (vunauth, valt):
+                    if c is not None:
+                        await c.close()
             except Exception as e:
                 self.log(f"  verify failed for {f.oracle}/{f.op_key}: {e!r}")
                 continue

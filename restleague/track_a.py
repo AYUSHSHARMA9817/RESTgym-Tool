@@ -86,7 +86,8 @@ class TrackARunner:
                  client: Optional[Any] = None, use_oracles: bool = True,
                  weights: Optional[Weights] = None, use_pool: bool = True,
                  max_checks_per_op: Optional[int] = None, workers: int = 1,
-                 findings_file: Optional[str] = None, api: str = ""):
+                 findings_file: Optional[str] = None, api: str = "",
+                 unauth_client: Any = None, alt_client: Any = None):
         self.ops = ops
         self.base_url = base_url
         self.budget = budget_seconds
@@ -114,6 +115,8 @@ class TrackARunner:
         # can be replayed against a clean API and checked by someone who did
         # not watch the run. Written out as findings arrive, not at the end.
         self.findings = FindingStore(findings_file, api=api)
+        self._unauth_client = unauth_client   # no-credential client (missing-auth oracle)
+        self._alt_client = alt_client         # second-identity client (cross-user oracle)
         self.workers = max(1, workers)
         self.active_workers = self.workers   # the allocator may resize this live
         self.oracles = [cls() for cls in ALL_ORACLES] if use_oracles else []
@@ -154,7 +157,8 @@ class TrackARunner:
                                      timeout=float(os.environ.get("REQUEST_TIMEOUT", "10")))
         executor = AsyncSequenceExecutor(self._client, self.generate_request,
                                          pool=self.pool, seed=self.seed)
-        ctx = OracleContext(ops=self.ops_by_key, client=self._client, rkg=self.rkg)
+        ctx = OracleContext(ops=self.ops_by_key, client=self._client, rkg=self.rkg,
+                            unauth_client=self._unauth_client, alt_client=self._alt_client)
 
         start = time.monotonic()
         deadline = start + self.budget

@@ -42,15 +42,33 @@ APIS = {
             "AUTH_TOKEN_HEADER": "Authorization",
             "AUTH_TOKEN_PREFIX": "Bearer ",
         },
+        # A second, distinct user, so the cross-user (BOLA) oracle can test
+        # whether name2's token reaches name1's resources.
+        "alt_auth": {
+            "AUTH_LOGIN_PATH": "/users/v1/login",
+            "AUTH_LOGIN_BODY": '{"username": "name2", "password": "pass2"}',
+            "AUTH_TOKEN_FIELD": "auth_token",
+            "AUTH_TOKEN_HEADER": "Authorization",
+            "AUTH_TOKEN_PREFIX": "Bearer ",
+        },
     },
 }
 
 
 def auth_for(api: str):
-    """The auth provider for `api`, or None. Built from the per-API config so
-    that concurrent campaigns on different APIs do not share one token."""
-    conf = APIS.get(api, {})
-    spec = conf.get("auth")
+    """The primary identity's auth provider for `api`, or None. Built from the
+    per-API config so concurrent campaigns on different APIs do not share one
+    token."""
+    return _provider(APIS.get(api, {}).get("auth"))
+
+
+def alt_auth_for(api: str):
+    """A second, distinct identity's auth provider, or None. Used by the
+    cross-user oracle; a fresh provider each call so the two never share state."""
+    return _provider(APIS.get(api, {}).get("alt_auth"))
+
+
+def _provider(spec):
     if not spec:
         return None
     from restleague.engine.client import auth_from_env

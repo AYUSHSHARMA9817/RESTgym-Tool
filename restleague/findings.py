@@ -89,15 +89,41 @@ class Finding:
                          for r in d.get("requests", [])]
         return cls(**d)
 
+    #: oracles whose reproduction needs credentials the recording cannot hold
+    _AUTH_ORACLES = {"missing_auth", "cross_user_access", "cross_entity_access"}
+
     def as_curl(self, base_url: str = "http://HOST:PORT") -> list[str]:
-        """The reproduction as shell commands, for pasting into a report."""
-        out = []
-        for r in self.requests:
+        """The reproduction as shell commands, for pasting into a report.
+
+        Auth is applied by the client at send time, so tokens are not in the
+        recorded requests. For an authorization finding the token *is* the
+        point, so the setup requests carry a ``$TOKEN`` placeholder and the
+        final (attacking) request a ``$TOKEN_B`` one, with a note saying what
+        each is -- rather than silently emitting a request that would 401.
+        """
+        is_auth = self.oracle in self._AUTH_ORACLES
+        out: list[str] = []
+        if is_auth:
+            if self.oracle == "cross_user_access":
+                out.append("# $TOKEN = user A's token, $TOKEN_B = a different user's token")
+            elif self.oracle == "missing_auth":
+                out.append("# $TOKEN = any valid token; the final request omits it on purpose")
+            else:
+                out.append("# $TOKEN = a valid token")
+        last = len(self.requests) - 1
+        for i, r in enumerate(self.requests):
             rec = r if isinstance(r, RequestRecord) else RequestRecord(**r)
             path = rec.path
             for k, v in rec.path_params.items():
                 path = path.replace("{" + k + "}", str(v))
             cmd = f"curl -i -X {rec.method} '{base_url}{path}'"
+            if is_auth:
+                if self.oracle == "cross_user_access" and i == last:
+                    cmd += " -H 'Authorization: Bearer $TOKEN_B'"   # the attacking request
+                elif self.oracle == "missing_auth" and i == last:
+                    pass                                            # no token: that is the test
+                else:
+                    cmd += " -H 'Authorization: Bearer $TOKEN'"
             if rec.body is not None:
                 cmd += (" -H 'Content-Type: application/json'"
                         f" -d '{json.dumps(rec.body)}'")
@@ -175,7 +201,8 @@ async def replay(finding: Finding, ops_by_key: dict, client) -> Sequence:
     return seq
 
 
-async def verify(finding: Finding, ops_by_key: dict, client, oracles: dict) -> bool:
+async def verify(finding: Finding, ops_by_key: dict, client, oracles: dict,
+                 unauth_client=None, alt_client=None) -> bool:
     """Replay a finding and re-run its oracle. True when it still stands.
 
     The oracle judges the replayed final step, exactly as it did during the
@@ -183,6 +210,10 @@ async def verify(finding: Finding, ops_by_key: dict, client, oracles: dict) -> b
     oracle and operation comes back. Anything that needed state built up
     earlier in a long run, or that was simply noise, fails here -- which is the
     point: what survives is demonstrable from a clean start.
+
+    ``unauth_client``/``alt_client`` must be supplied to verify a finding from
+    an authorization oracle -- those replay through a second client, and without
+    it the oracle silently skips and the finding looks unreproducible.
     """
     from .oracles.base import OracleContext
 
@@ -196,7 +227,8 @@ async def verify(finding: Finding, ops_by_key: dict, client, oracles: dict) -> b
         return False
     last = Sequence(target_op_key=finding.op_key)
     last.append(seq.steps[-1])
-    ctx = OracleContext(ops=ops_by_key, client=client, verify=False)
+    ctx = OracleContext(ops=ops_by_key, client=client, verify=False,
+                        unauth_client=unauth_client, alt_client=alt_client)
     try:
         again = await oracle.check(last, ctx)
     except Exception as e:
