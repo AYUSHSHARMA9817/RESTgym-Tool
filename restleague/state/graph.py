@@ -18,10 +18,12 @@ converge later without a second, diverging set of naming rules.
 """
 from __future__ import annotations
 
+import os
 import random
 import re
 import threading
 import time
+from collections import deque
 from typing import Any, Optional
 
 from ..engine.pool import norm, singular, resource_for_param
@@ -33,13 +35,26 @@ _PARAM_RE = re.compile(r"\{([^}]+)\}")
 class RelationalKnowledgeGraph:
     """In-memory store of EntityNodes and the EntityEdges between them."""
 
-    def __init__(self, seed: Optional[int] = None):
+    def __init__(self, seed: Optional[int] = None, max_nodes: Optional[int] = None):
         self._nodes: dict[tuple[str, Any], EntityNode] = {}
         self._children: dict[tuple[str, Any], set[tuple[str, Any]]] = {}
         self._parents: dict[tuple[str, Any], tuple[str, Any]] = {}
-        self._edges: list[EntityEdge] = []
+        # Never read anywhere; kept only as an audit trail. Bounded so it cannot
+        # grow without limit over a long run (it previously appended forever).
+        self._edges: deque = deque(maxlen=50000)
         self._rng = random.Random(seed)
         self._lock = threading.Lock()
+        # Optional soft cap on live entities, a safety net for long unattended
+        # runs: the graph otherwise grows with every created entity and only
+        # shrinks on DELETE. 0 (the default) means unbounded -- the exact prior
+        # behaviour. Set RKG_MAX_NODES (e.g. 100000) for a multi-hour run.
+        if max_nodes is None:
+            try:
+                max_nodes = int(os.environ.get("RKG_MAX_NODES", "0") or 0)
+            except ValueError:
+                max_nodes = 0
+        self.max_nodes = max(0, max_nodes)
+        self.evicted = 0
 
     # ------------------------------------------------------------- mutation
     def add_entity(self, entity_type: str, entity_id: Any, attributes: Optional[dict] = None,
@@ -78,7 +93,33 @@ class RelationalKnowledgeGraph:
                 self._children.setdefault(pkey, set()).add(key)
                 self._parents[key] = pkey
                 self._edges.append(EntityEdge(parent=pkey, child=key, relation=relation))
+            if self.max_nodes and len(self._nodes) > self.max_nodes:
+                self._evict_locked()
             return node
+
+    def _evict_locked(self) -> None:
+        """Drop oldest *leaf* entities to keep under ``max_nodes``.
+
+        Called with ``self._lock`` held. Only entities with no live children are
+        removed, so a binding chain in use is never orphaned -- evicting a leaf
+        can make its parent a leaf, reclaimed on a later pass. Oldest first
+        (dicts preserve insertion order). Evicts down to ~90% of the cap to
+        avoid running on every single add once the cap is reached.
+        """
+        target = int(self.max_nodes * 0.9)
+        for key in list(self._nodes.keys()):
+            if len(self._nodes) <= target:
+                break
+            if self._children.get(key):
+                continue                     # has children; removing it would orphan them
+            self._nodes.pop(key, None)
+            self._children.pop(key, None)
+            parent = self._parents.pop(key, None)
+            if parent is not None:
+                kids = self._children.get(parent)
+                if kids is not None:
+                    kids.discard(key)
+            self.evicted += 1
 
     def set_state(self, entity_type: str, entity_id: Any, state: str) -> None:
         with self._lock:

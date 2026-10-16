@@ -54,6 +54,21 @@ from .state.inferrer import DynamicStateMachineInferrer
 log = logging.getLogger("restleague.track_a")
 
 
+def _rss_mb() -> float:
+    """Current resident memory of this process in MB, best-effort (0.0 if it
+    cannot be read). Linux reads /proc; elsewhere falls back to peak RSS."""
+    try:
+        with open("/proc/self/statm") as fh:
+            resident_pages = int(fh.read().split()[1])
+        return resident_pages * (os.sysconf("SC_PAGE_SIZE") / (1024 * 1024))
+    except Exception:
+        try:
+            import resource
+            return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
+        except Exception:
+            return 0.0
+
+
 @dataclass
 class TrackAResult:
     unique_5xx: int
@@ -71,14 +86,21 @@ class TrackAResult:
     uncovered: list[str] = field(default_factory=list)
     states: dict = field(default_factory=dict)
     scheduler: dict = field(default_factory=dict)
+    rss_mb: float = 0.0          # resident memory at the end of the run
+    rkg_nodes: int = 0           # live entities in the knowledge graph
+    rkg_evicted: int = 0         # entities dropped by the optional soft cap
 
     def describe(self) -> str:
         errs = f" errors={self.sequence_errors}" if self.sequence_errors else ""
         unrep = f" unreproduced={self.unreproduced}" if self.unreproduced else ""
+        # health tail: memory and graph size, so a long run's growth is visible
+        # in the one line the campaign records per round.
+        health = (f" rss={self.rss_mb:.0f}MB rkg={self.rkg_nodes}"
+                  + (f" evicted={self.rkg_evicted}" if self.rkg_evicted else ""))
         return (f"sequences={self.sequences_run}{errs} requests={self.total_requests} "
                 f"unique5xx={self.unique_5xx} violations={self.unique_violations} "
                 f"covered={self.operations_covered}/{self.operations_total}{unrep} "
-                f"in {self.elapsed:.0f}s")
+                f"in {self.elapsed:.0f}s{health}")
 
 
 class TrackARunner:
@@ -444,6 +466,9 @@ class TrackARunner:
             uncovered=uncovered,
             states=self.dsmi.summary(),
             scheduler=self.scheduler.stats(),
+            rss_mb=_rss_mb(),
+            rkg_nodes=self.rkg.size(),
+            rkg_evicted=getattr(self.rkg, "evicted", 0),
         )
 
 
