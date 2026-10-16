@@ -45,8 +45,13 @@ class RaceConditionOracle(Oracle):
             if not both_ok:
                 continue                 # one was rejected -> the API serialised, fine
             method = req.method.upper()
-            is_collection_post = method == "POST" and not _PARAM_RE.search(
-                req.path.rstrip("/").rsplit("/", 1)[-1])
+            # POST to a login/token/auth endpoint is not a "create once" action,
+            # so two concurrent successes are expected, not a duplicate-create.
+            is_auth_action = any(t in req.path.lower()
+                                 for t in ("login", "logout", "signin", "signout",
+                                           "token", "session", "authenticate", "refresh"))
+            is_collection_post = (method == "POST" and not is_auth_action
+                                  and not _PARAM_RE.search(req.path.rstrip("/").rsplit("/", 1)[-1]))
             if method == "DELETE":
                 out.append(self.violation(
                     req.op_key,

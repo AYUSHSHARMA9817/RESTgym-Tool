@@ -105,3 +105,7 @@ assert nested_client.sent == [], "a child with no standalone route must not be p
 print("OK   dangling skips a child with no standalone route (would 404 for the right reason)")
 
 print("ALL CHECKS PASSED")
+
+# a concurrent login is not a duplicate-create: both succeeding is expected
+assert run(RaceConditionOracle(), race_pair("POST", "/users/v1/login", 200, 200, "POST /users/v1/login")) == []
+print("OK   race ignores concurrent logins (auth action, not a create)")
