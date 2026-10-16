@@ -45,6 +45,7 @@ from .findings import FindingStore
 from .oracles.tracker import ViolationTracker
 from .sequence.executor import AsyncSequenceExecutor
 from .sequence.mutator import SequenceMutator
+from .sequence.planner import make_planner
 from .sequence.scheduler import Outcome, SequenceScheduler, Weights
 from .sequence.synthesizer import SequenceSynthesizer
 from .state.graph import RelationalKnowledgeGraph
@@ -87,7 +88,8 @@ class TrackARunner:
                  weights: Optional[Weights] = None, use_pool: bool = True,
                  max_checks_per_op: Optional[int] = None, workers: int = 1,
                  findings_file: Optional[str] = None, api: str = "",
-                 unauth_client: Any = None, alt_client: Any = None):
+                 unauth_client: Any = None, alt_client: Any = None,
+                 planner: Any = None):
         self.ops = ops
         self.base_url = base_url
         self.budget = budget_seconds
@@ -105,6 +107,10 @@ class TrackARunner:
         self.dsmi = DynamicStateMachineInferrer()
         self.pool = ResourcePool(seed=seed) if use_pool else None
         self.synth = SequenceSynthesizer(ops)
+        # Optional LLM prerequisite planner. Explicitly passed one wins (tests);
+        # otherwise built from the environment, which is NullPlanner (no AI)
+        # unless LLM_PLANNER is set. So the default path is unchanged.
+        self.planner = planner if planner is not None else make_planner(api=api)
         self.mutator = SequenceMutator(ops, seed=seed)
         targets = self.synth.targets() or ops
         self.scheduler = SequenceScheduler(targets, seed=seed, weights=weights,
@@ -157,7 +163,8 @@ class TrackARunner:
             self._client = ApiClient(self.base_url, auth=auth_from_env(),
                                      timeout=float(os.environ.get("REQUEST_TIMEOUT", "10")))
         executor = AsyncSequenceExecutor(self._client, self.generate_request,
-                                         pool=self.pool, seed=self.seed)
+                                         pool=self.pool, seed=self.seed,
+                                         planner=self.planner)
         ctx = OracleContext(ops=self.ops_by_key, client=self._client, rkg=self.rkg,
                             unauth_client=self._unauth_client, alt_client=self._alt_client,
                             taint=self._taint)

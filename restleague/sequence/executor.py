@@ -111,11 +111,15 @@ class AsyncSequenceExecutor:
     """Executes a plan of Operations as one connected Sequence."""
 
     def __init__(self, client, generate_request: Callable[..., Request], pool=None,
-                 seed: Optional[int] = None):
+                 seed: Optional[int] = None, planner=None):
         self.client = client                      # engine.client.ApiClient
         self.generate_request = generate_request  # spec.values.generate_request
         self.pool = pool                          # optional engine.pool.ResourcePool
         self.rng = random.Random(seed)            # used by the payload operators
+        # Optional, off by default. When set (LLM_PLANNER=1) it supplies value
+        # hints for fields a schema-only generator cannot satisfy, applied to
+        # VALID requests only. None -> exact spec-only behaviour (no AI).
+        self.planner = planner
 
     async def execute(self, plan, rkg, *, mode: Mode = Mode.VALID,
                       target_mode: Optional[Mode] = None, stop_on_prefix_failure: bool = True,
@@ -190,6 +194,8 @@ class AsyncSequenceExecutor:
         """Generate a request, then overwrite its path params with related ids."""
         req = self.generate_request(op, self.pool, mode)
         req.op_key = op.key
+        if self.planner is not None and mode == Mode.VALID:
+            self._apply_hints(op, req)
         bindings = None
         try:
             if cross_entity:
@@ -204,6 +210,29 @@ class AsyncSequenceExecutor:
         if bindings:
             req.path_params.update(bindings)
         return req
+
+    def _apply_hints(self, op: Operation, req: Request) -> None:
+        """Overlay the planner's value hints onto a freshly generated VALID
+        request. Purely additive: the hints only change which concrete values go
+        out to reach a state; the oracles judge the result either way, so a bad
+        hint costs reachability, never soundness. Applied to whichever of body /
+        form / query the request carries the field in; unknown fields are added
+        to the body (the planner is told to use declared fields only)."""
+        try:
+            hints = self.planner.hints(op)
+        except Exception as e:
+            log.debug("planner hints failed for %s: %s", op.key, e)
+            return
+        if not hints:
+            return
+        for key, value in hints.items():
+            placed = False
+            for holder in (req.body, req.form, req.query):
+                if isinstance(holder, dict) and key in holder:
+                    holder[key] = value
+                    placed = True
+            if not placed and isinstance(req.body, dict):
+                req.body[key] = value
 
     def _apply_attack(self, name: str, req: Request, op: Operation) -> Request:
         """Run one of engine/mutations.py's payload operators over the request.
