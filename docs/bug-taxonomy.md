@@ -40,7 +40,7 @@ down the gaps to see the step-by-step work.
 |---|---|---|---|---|
 | C1 | BOLA within one tenant (parent A's URL, parent B's child) | cross-entity path binding, flag a 2XX | **partial** | `cross_entity_access` crosses *resource* ids; it does not yet cross *user* ids |
 | C2 | **BOLA across users** (user A's token on user B's object) | log in as two users, use A's token on B's resource, expect 403/404 | **done** | — `cross_user_access` oracle; found & confirmed 2 real BOLA bugs in VAmPI |
-| C3 | **BFLA** (regular user reaching an admin-only operation) | call privileged operations with a low-privilege token | **gap** | needs two *roles* (admin + user) and a notion of which ops are privileged |
+| C3 | **BFLA** (regular user reaching an admin-only operation) | call privileged operations with a low-privilege token | **done** | — `broken_function_auth` oracle; admin-op naming heuristic + anon/other-user replay; caught VAmPI `/_debug` |
 | C4 | Missing auth entirely (sensitive op answers with no token) | send the request with the auth header stripped, expect 401/403 | **done** | — `missing_auth` oracle, keyed on the spec's `security` requirement |
 | C5 | Token flaws (none-alg JWT, no expiry check, weak signature) | tamper the token, replay | **gap** | JWT-specific; narrower, lower priority |
 
@@ -51,7 +51,7 @@ down the gaps to see the step-by-step work.
 | D1 | Written field not persisted (CRUD round-trip) | write, read back, compare writable fields | **done** | — `crud_roundtrip`, with normalisation tolerance |
 | D2 | Zombie resource (readable after a successful DELETE) | DELETE, then GET, with retry for eventual consistency | **done** | — `zombie_resource` |
 | D3 | Mass assignment, **echoed** (undeclared field stored and returned) | send `isAdmin`/`role`, read it back | **done** | — `mass_assignment` |
-| D4 | Mass assignment, **hidden** (stored but never echoed) | send the field, then check for a *behavioural* change (does the account now have admin powers?) | **gap** | VAmPI proved this: `admin:true` sticks but `GET` never returns it. Needs behaviour-based confirmation, not read-back |
+| D4 | Mass assignment, **hidden** (stored but never echoed) | send the field, then look for it through *any* endpoint that exposes it (list/debug), not just the item GET | **done** | — `mass_assignment` read-back generalised to listing/debug routes; caught VAmPI's `admin:true` via `/_debug` |
 | D5 | Illegal state transition (pay an already-paid order) | learn the lifecycle, attempt an operation never seen from that state | **partial** | `illegal_transition` + DSMI exist; we flag a 5XX but not a *silently accepted* illegal transition |
 | D6 | Dangling reference (child usable after its parent is deleted) | delete a parent, then use an orphaned child id | **done** | — `dangling_reference` oracle; probes orphans via their standalone route |
 | D7 | Race / double-action (double-spend, duplicate create) | fire the state-changing call twice concurrently, compare outcomes | **done** | — `race_condition` oracle; DELETE both-2XX = violation, concurrent create = warning; verified by concurrent re-fire |

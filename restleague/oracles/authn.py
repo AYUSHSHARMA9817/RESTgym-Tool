@@ -32,6 +32,17 @@ from .base import Oracle, OracleContext, stable_view
 _PARAM_RE = re.compile(r"\{([^}]+)\}")
 WRITE_METHODS = ("POST", "PUT", "PATCH", "DELETE")
 
+# path/operation tokens that mark a function as administrative. A black-box tool
+# cannot read the server's role model, so this naming heuristic is how it asserts
+# "this function should require elevated privilege" -- the premise BFLA needs.
+ADMIN_TOKENS = ("admin", "debug", "internal", "manage", "moderat", "superuser",
+                "sudo", "root", "backend", "/all", "config", "dump")
+
+
+def _is_admin_op(op) -> bool:
+    hay = (op.path + " " + (op.operation_id or "")).lower()
+    return any(t in hay for t in ADMIN_TOKENS)
+
 
 def _requires_auth(op) -> bool:
     """Does the spec say this operation needs credentials?"""
@@ -125,4 +136,56 @@ class CrossUserAccessOracle(Oracle):
                     f"user; the resource may not be owner-isolated",
                     severity="warning", method=req.method,
                     user_b_status=as_b.status))
+        return out
+
+
+class BrokenFunctionAuthOracle(Oracle):
+    """An administrative function reachable by a low-privilege principal (BFLA).
+
+    The premise -- "this function is administrative" -- comes from the naming
+    heuristic (``_is_admin_op``), since a black-box tool cannot read the role
+    model. Given a successful request on such a function, it replays with a
+    principal that should *not* be allowed: no credentials, and a second plain
+    user. A 2XX from either means the privileged function is not function-gated.
+
+    This is distinct from missing_auth (C4): that fires only when the spec
+    *declares* the op needs auth. An intentionally-public debug endpoint that
+    dumps every password declares no auth, so C4 stays silent -- but the
+    function is clearly privileged, which is exactly what this oracle asserts.
+    """
+    name = "broken_function_auth"
+    active = True
+    mutating = True        # replays whatever the op was, possibly a write
+
+    async def check(self, seq: Sequence, ctx: OracleContext) -> list[OracleViolation]:
+        if ctx.unauth_client is None and ctx.alt_client is None:
+            return []
+        out: list[OracleViolation] = []
+        for step in seq.steps:
+            req, resp = step.request, step.response
+            if resp is None or not resp.ok or req.mutation:
+                continue
+            op = ctx.op(req.op_key)
+            if not op or not _is_admin_op(op):
+                continue
+
+            if ctx.unauth_client is not None:
+                anon = await ctx.unauth_client.send(_strip_auth(req))
+                if anon.ok:
+                    out.append(self.violation(
+                        req.op_key,
+                        f"administrative function answered {req.method} with no "
+                        f"credentials ({anon.status})",
+                        severity="violation", principal="anonymous",
+                        status=anon.status))
+                    continue
+            if ctx.alt_client is not None:
+                asb = await ctx.alt_client.send(_strip_auth(req))
+                if asb.ok:
+                    out.append(self.violation(
+                        req.op_key,
+                        f"administrative function answered {req.method} for a second, "
+                        f"non-privileged user ({asb.status})",
+                        severity="violation", principal="other-user",
+                        status=asb.status))
         return out
