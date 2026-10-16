@@ -14,6 +14,7 @@ from .crud import CrudRoundtripOracle, ZombieResourceOracle
 from .idempotency import IdempotencyOracle, RepeatedDeleteOracle, SafetyOracle
 from .lifecycle import DanglingReferenceOracle, RaceConditionOracle
 from .massassign import MassAssignmentOracle
+from .responses import CorsOracle, ReflectedPayloadOracle, TimingInjectionOracle
 from .secondorder import SecondOrderInjectionOracle
 
 ALL_ORACLES = (
@@ -30,4 +31,7 @@ ALL_ORACLES = (
     RaceConditionOracle,
     DanglingReferenceOracle,
     SecondOrderInjectionOracle,
+    ReflectedPayloadOracle,
+    TimingInjectionOracle,
+    CorsOracle,
 )

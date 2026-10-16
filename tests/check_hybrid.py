@@ -62,8 +62,9 @@ async def gating():
     # the parallel-safe set is exactly the oracles that send no extra requests
     # of their own -- they only inspect what the run already did, so concurrent
     # traffic cannot mislead them
-    assert passive == {"schema_conformance", "cross_entity_access",
-                       "race_condition", "second_order_injection"}, passive
+    assert passive == {"schema_conformance", "cross_entity_access", "race_condition",
+                       "second_order_injection", "reflected_payload", "timing_injection",
+                       "cors_misconfig"}, passive
     assert "idempotency" in active and "safety" in active and "crud_roundtrip" in active
     print("OK   passive (parallel-safe) oracles:", sorted(passive))
     print("OK   comparison-based oracles stood down in parallel:", sorted(active))
@@ -119,9 +120,9 @@ async def modes():
     # Track A runs, so the comparison-based oracles stay valid for its whole
     # phase instead of only a short warm-up.
     solo = TrackARunner(OPS, "http://fake", client=HybridApi(), workers=1)
-    assert len(solo.oracles) == 13, [o.name for o in solo.oracles]
+    assert len(solo.oracles) == 16, [o.name for o in solo.oracles]
     concurrent = TrackARunner(OPS, "http://fake", client=HybridApi(), workers=4)
-    assert len(concurrent.oracles) == 4, [o.name for o in concurrent.oracles]
+    assert len(concurrent.oracles) == 7, [o.name for o in concurrent.oracles]
     print(f"OK   sequential keeps all {len(solo.oracles)} oracles; "
           f"concurrent keeps {len(concurrent.oracles)} (the parallel-safe ones)")
 

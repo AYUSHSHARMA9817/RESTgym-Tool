@@ -31,8 +31,8 @@ down the gaps to see the step-by-step work.
 | B1 | SQL / NoSQL injection (error-based) | injection payloads, watch for 5XX or DB-error strings | **done** | — `SQLI`/`NOSQLI` families |
 | B2 | Command / template / XXE / header injection, path traversal | payload families on string slots | **done** | — all families present in `mutations.py` |
 | B3 | **Second-order injection** (stored via one endpoint, fires on another) | store a payload, then read it back through a *different* endpoint and watch *that* one break | **done** | — `second_order_injection` oracle + taint registry; violation when the error echoes the stored payload, warning on correlation alone |
-| B4 | Blind injection (time-based, no error leaked) | measure response-time deltas for a sleep payload | **gap** | we send `sleep()` payloads but don't compare timing to flag blind cases |
-| B5 | Reflected XSS / unescaped reflection | send a marker, check it comes back unescaped | **gap** | we send XSS payloads but only flag a 5XX, not an unescaped reflection |
+| B4 | Blind injection (time-based, no error leaked) | measure response-time deltas for a sleep payload | **done** | — `timing_injection` oracle: sleep payload + slow response |
+| B5 | Reflected XSS / unescaped reflection | send a marker, check it comes back unescaped | **done** | — `reflected_payload` oracle: verbatim echo in HTML = violation, else warning |
 
 ## C. Authorization (who may touch what) — OWASP API1/API3/API5
 
@@ -65,7 +65,7 @@ down the gaps to see the step-by-step work.
 | E3 | Unsafe GET/HEAD (a read changes state) | read twice, compare | **done** | — `safety` |
 | E4 | Repeated DELETE crashes | DELETE twice, expect 404/204 not 5XX | **done** | — `repeated_delete` |
 | E5 | Wrong status code (404 where 400 is due, 200 on an error) | compare status to outcome | **gap** | partially implied by E1; no dedicated status-semantics oracle |
-| E6 | Missing/mis-set security headers, verbose error leakage | inspect response headers and error bodies | **partial** | stack-trace leakage done (A3); headers (CORS, cache) not checked |
+| E6 | Missing/mis-set security headers, verbose error leakage | inspect response headers and error bodies | **partial** | stack-trace leakage (A3) and CORS wildcard+credentials (`cors_misconfig`) done; other headers (cache, CSP) not checked |
 
 ## F. Resource exhaustion and limits (OWASP API4)
 
@@ -106,10 +106,13 @@ Ordered by value per unit of work, and by what unblocks the most downstream.
 5. **Race oracle** (D7). `double_action` already fires the pair; add the oracle that flags "both succeeded."
 6. **Behavioural mass-assignment** (D4). When a written privileged field isn't echoed, probe whether it took effect.
 
-**Tier 3 — cheap breadth**
-7. **Blind/timing injection** (B4) and **reflected-XSS** (B5): we already send the payloads; add timing comparison and reflection checks.
-8. **Pagination/limit** (F1) and **resource-limit reporting** (F2): flag the symptoms we already provoke.
-9. **Status-semantics** (E5) and **security-header** (E6) oracles.
+**Tier 3 — cheap breadth — MOSTLY DONE**
+7. ~~Blind/timing injection (B4)~~ and ~~reflected-XSS (B5)~~ — `timing_injection`, `reflected_payload`.
+9. ~~Security-header (E6)~~ — `cors_misconfig` (wildcard origin + credentials).
+   Still open, lower value: **pagination/limit (F1)** and **resource-limit
+   reporting (F2)** -- symptoms we provoke but don't yet report; and
+   **status-semantics (E5)** -- too intent-dependent to flag soundly without
+   more spec signal.
 
 **Tier 1 is the clear next step** — it converts the largest findable-but-unreached
 bug family into a reached one, and it's the prerequisite for crAPI being worth running.
