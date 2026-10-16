@@ -35,8 +35,14 @@ WRITE_METHODS = ("POST", "PUT", "PATCH", "DELETE")
 # path/operation tokens that mark a function as administrative. A black-box tool
 # cannot read the server's role model, so this naming heuristic is how it asserts
 # "this function should require elevated privilege" -- the premise BFLA needs.
+# "/all" was here but is too weak a signal: a self-scoped listing like
+# ``GET /shop/orders/all`` means "all of *my* orders", not an administrative
+# function, and a second user getting 200 on their own (empty) list is not a
+# privilege escalation. It produced a false BFLA against crAPI's orders/all.
+# The remaining tokens denote genuinely elevated functions; a real admin list
+# endpoint (crAPI's ``/management/users/all``) still matches via "manage".
 ADMIN_TOKENS = ("admin", "debug", "internal", "manage", "moderat", "superuser",
-                "sudo", "root", "backend", "/all", "config", "dump")
+                "sudo", "root", "backend", "config", "dump")
 
 
 def _is_admin_op(op) -> bool:

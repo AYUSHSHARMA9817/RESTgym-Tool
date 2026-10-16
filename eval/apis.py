@@ -67,6 +67,36 @@ APIS["crapi"] = {
     # leaves the heavy ML services (chatbot, chromadb) off.
     "port": 8888, "probe": "/",
     "compose": os.path.abspath(_CRAPI_COMPOSE), "compose_up": ["crapi-web"],
+    # crAPI's nginx gateway (crapi-web) hard-fails at start with
+    # `[emerg] host not found in upstream "crapi-chatbot"` unless that hostname
+    # resolves -- and the chatbot is a heavy ML service (needs chromadb) we do
+    # not want for API testing. So we stand up a tiny stub under that network
+    # alias purely so nginx boots; nothing routes real traffic to it. The
+    # gateway's own healthcheck then passes and :8888 serves the whole surface.
+    "compose_stub": {"alias": "crapi-chatbot", "image": "python:3.11-alpine",
+                     "cmd": ["sh", "-c", "python -m http.server 5002"]},
+    "compose_health": "crapi-web",     # service whose health gates readiness
+    # Fuzzing these with our own token destroys the identity we authenticate as
+    # (change password/email, trigger reset, exhaust OTP) or desyncs crAPI's
+    # user-id sequence (bulk signup), locking the run out of every protected
+    # endpoint. Excluded from the fuzzed set only; still available for replay.
+    "fuzz_exclude": [
+        ["POST", "/identity/api/auth/signup"],
+        ["POST", "/identity/api/auth/forget-password"],
+        ["POST", "/identity/api/v2/user/reset-password"],
+        ["POST", "/identity/api/v2/user/change-email"],
+        ["POST", "/identity/api/v2/user/verify-email-token"],
+        ["POST", "/identity/api/auth/v3/check-otp"],
+        ["POST", "/identity/api/auth/v2/check-otp"],
+        ["POST", "/identity/api/auth/v4.0/user/login-with-token"],
+        ["POST", "/identity/api/auth/v2.7/user/login-with-token"],
+    ],
+    # crAPI's /community/* is a PUBLIC forum: any authenticated user may read
+    # and comment on any post by design. An authorization oracle firing there
+    # ("a second user accessed another user's resource") reports intended
+    # behaviour, not a bug. The spec marks these bearerAuth-protected, so this
+    # is a semantic judgement the tool cannot make alone -- recorded here.
+    "public_authz_paths": ["/community/"],
     "fast_verify": True,          # too heavy to restart per finding; verify live
     # crAPI ships no seeded users, so create the two login identities first
     "signup": [
@@ -155,14 +185,7 @@ def _start_once(api: str) -> str:
     stop(api)
 
     if conf.get("compose"):
-        # Multi-container stack (crAPI). `up --wait` blocks on the services'
-        # own healthchecks, so the base URL is live when this returns. The
-        # listed services pull in their depends_on chain; heavy extras
-        # (chatbot, chromadb) are left out by simply not naming them.
-        _compose(conf, "up", "-d", "--wait", *conf.get("compose_up", []))
-        base = f"http://localhost:{conf['port']}"
-        _run_setup(base, conf)
-        return base
+        return _start_compose(conf)
 
     _docker("network", "create", NETWORK, check=False)
 
@@ -197,6 +220,64 @@ def _start_once(api: str) -> str:
         raise RuntimeError(f"{api} did not start")
     _run_setup(base, conf)
     return base
+
+
+def _start_compose(conf: dict) -> str:
+    """Bring up a docker-compose stack (crAPI) and return its base URL once live.
+
+    `up --wait` cannot be used directly: crAPI's gateway (crapi-web) refuses to
+    start until the `crapi-chatbot` upstream hostname resolves, and that service
+    is a heavy ML container we skip. So we (1) start the stack detached, (2) run
+    a tiny stub under the chatbot's network alias so nginx boots, (3) restart
+    the gateway to pick up the now-resolvable upstream, and (4) poll the
+    gateway's health until it is serving, then seed the login users.
+    """
+    _compose(conf, "up", "-d", *conf.get("compose_up", []))
+    base = f"http://localhost:{conf['port']}"
+
+    stub = conf.get("compose_stub")
+    health = conf.get("compose_health")
+    if stub and health:
+        net = _docker("inspect", health, "-f",
+                      "{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}",
+                      check=False).stdout.strip()
+        if net:
+            _docker("rm", "-f", stub["alias"], check=False)
+            _docker("run", "-d", "--name", stub["alias"], "--network", net,
+                    "--network-alias", stub["alias"], stub["image"], *stub["cmd"],
+                    check=False)
+            _docker("restart", health, check=False)
+
+    deadline = time.time() + 300
+    while time.time() < deadline:
+        state = _docker("inspect", health or conf["compose_up"][0], "-f",
+                        "{{.State.Health.Status}}", check=False).stdout.strip()
+        if state == "healthy":
+            break
+        try:
+            if urllib.request.urlopen(base + conf["probe"], timeout=2).status == 200:
+                break
+        except Exception:
+            pass
+        time.sleep(3)
+    else:
+        raise RuntimeError("crapi gateway did not become healthy")
+
+    _run_setup(base, conf)
+    return base
+
+
+def fuzz_exclude(api: str) -> set:
+    """(method, path) pairs to keep OUT of the fuzzed op set for `api` -- ops
+    that would destroy the test identity or the backing store if fuzzed. Empty
+    for APIs that declare none. The ops stay available for finding replay."""
+    return {(m, p) for m, p in APIS.get(api, {}).get("fuzz_exclude", [])}
+
+
+def public_authz_paths(api: str) -> tuple:
+    """Path prefixes that are public-by-design (e.g. a forum), so the
+    authorization oracles must not flag cross-user access there as a bug."""
+    return tuple(APIS.get(api, {}).get("public_authz_paths", []))
 
 
 def _run_setup(base: str, conf: dict) -> None:

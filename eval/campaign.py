@@ -42,7 +42,8 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from eval.apis import APIS, alt_auth_for, auth_for, fast_verify, start, stop                          # noqa: E402
+from eval.apis import (APIS, alt_auth_for, auth_for, fast_verify, fuzz_exclude,   # noqa: E402
+                       public_authz_paths, start, stop)
 from restleague.engine.client import ApiClient                   # noqa: E402
 from restleague.engine.strategy import Strategy                   # noqa: E402
 from restleague.findings import verify                           # noqa: E402
@@ -53,6 +54,19 @@ from restleague.spec.parser import parse_spec                    # noqa: E402
 from restleague.track_a import TrackARunner                      # noqa: E402
 
 STOP = False
+
+# Oracles that assert something about *who* may reach a resource. On a
+# public-by-design namespace (a forum) their premise does not hold, so findings
+# there are scoped out per-API via APIS[...]["public_authz_paths"].
+_AUTHZ_ORACLES = {"cross_user_access", "missing_auth", "broken_function_auth",
+                  "cross_entity_access"}
+
+
+def _public_authz_fp(api: str, oracle: str, op_key: str) -> bool:
+    if oracle not in _AUTHZ_ORACLES:
+        return False
+    path = op_key.split(" ", 1)[-1]
+    return any(path.startswith(p) for p in public_authz_paths(api))
 
 
 def _stop(signum, frame):
@@ -123,7 +137,12 @@ class Campaign:
     # --------------------------------------------------------------- a round
     async def round_for(self, api: str, seed: int) -> None:
         ops = order_operations(parse_spec(f"specs/{api}-openapi.json"))
-        by_key = {o.key: o for o in ops}
+        by_key = {o.key: o for o in ops}          # full set for replay/verify
+        excl = fuzz_exclude(api)
+        fuzz_ops = [o for o in ops if (o.method, o.path) not in excl] if excl else ops
+        if excl:
+            self.log(f"{api}: fuzzing {len(fuzz_ops)}/{len(ops)} ops "
+                     f"({len(excl)} excluded as identity/store-destructive)")
 
         base = start(api)
         client = ApiClient(base, timeout=10.0, auth=auth_for(api))
@@ -132,7 +151,7 @@ class Campaign:
         unauth = ApiClient(base, timeout=10.0) if auth_for(api) else None
         alt_prov = alt_auth_for(api)
         alt = ApiClient(base, timeout=10.0, auth=alt_prov) if alt_prov else None
-        runner = TrackARunner(ops, base, budget_seconds=self.budget, seed=seed,
+        runner = TrackARunner(fuzz_ops, base, budget_seconds=self.budget, seed=seed,
                               client=client, findings_file=self.findings_path, api=api,
                               unauth_client=unauth, alt_client=alt)
         res = await runner.run_async()
@@ -144,8 +163,12 @@ class Campaign:
         self._note_crashes(api, res.faults)
 
         fresh = [f for f in runner.findings.findings
-                 if (f.oracle, f.op_key, f.summary) not in self.seen]
-        self.log(f"{api} seed={seed}: {len(fresh)} new finding(s) to verify")
+                 if (f.oracle, f.op_key, f.summary) not in self.seen
+                 and not _public_authz_fp(api, f.oracle, f.op_key)]
+        scoped = sum(1 for f in runner.findings.findings
+                     if _public_authz_fp(api, f.oracle, f.op_key))
+        self.log(f"{api} seed={seed}: {len(fresh)} new finding(s) to verify"
+                 + (f" ({scoped} scoped out as public-by-design)" if scoped else ""))
 
         for f in fresh:
             key = (f.oracle, f.op_key, f.summary)

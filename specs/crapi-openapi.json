@@ -1236,8 +1236,7 @@
                       "required" : [ "created_at", "email", "nickname", "profile_pic_url", "vehicleid" ],
                       "properties" : {
                         "vehicleid" : {
-                          "type" : "string",
-                          "format" : "uuid"
+                          "type" : "string"
                         },
                         "email" : {
                           "type" : "string"
@@ -1319,8 +1318,7 @@
                       "required" : [ "created_at", "email", "nickname", "profile_pic_url", "vehicleid" ],
                       "properties" : {
                         "vehicleid" : {
-                          "type" : "string",
-                          "format" : "uuid"
+                          "type" : "string"
                         },
                         "email" : {
                           "type" : "string"
@@ -1365,8 +1363,7 @@
                             "required" : [ "created_at", "email", "nickname", "profile_pic_url", "vehicleid" ],
                             "properties" : {
                               "vehicleid" : {
-                                "type" : "string",
-                                "format" : "uuid"
+                                "type" : "string"
                               },
                               "email" : {
                                 "type" : "string"
@@ -1487,11 +1484,22 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/Post"
+                  "type" : "object",
+                  "required" : [ "posts" ],
+                  "properties" : {
+                    "posts" : {
+                      "type" : "array",
+                      "items" : {
+                        "$ref" : "#/components/schemas/Post"
+                      }
+                    },
+                    "next_offset" : { },
+                    "previous_offset" : { },
+                    "total" : {
+                      "type" : "integer"
+                    }
                   },
-                  "description" : "Array of forum posts"
+                  "description" : "Recent forum posts, paginated"
                 },
                 "example" : [ {
                   "id" : "ConZLXacq3MqhbLQDrbNLf",
@@ -1827,13 +1835,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "type" : "object",
-                  "required" : [ "orders" ],
-                  "properties" : {
-                    "orders" : {
-                      "$ref" : "#/components/schemas/Order"
-                    }
-                  }
+                  "type" : "object"
                 }
               }
             },
@@ -1903,11 +1905,12 @@
               "application/json" : {
                 "schema" : {
                   "type" : "object",
-                  "required" : [ "orders" ],
+                  "required" : [ "order" ],
                   "properties" : {
-                    "orders" : {
+                    "order" : {
                       "$ref" : "#/components/schemas/Order"
-                    }
+                    },
+                    "payment" : { }
                   }
                 }
               }
@@ -2251,8 +2254,7 @@
                         "required" : [ "user", "available_credit" ],
                         "properties" : {
                           "available_credit" : {
-                            "type" : "integer",
-                            "format" : "float"
+                            "type" : "number"
                           },
                           "user" : {
                             "type" : "object",
@@ -3044,9 +3046,9 @@
           "comments" : {
             "type" : "array",
             "items" : {
-              "type" : "string"
+              "type" : "object"
             },
-            "description" : ""
+            "description" : "Comment objects on the post"
           },
           "authorid" : {
             "type" : "integer",
