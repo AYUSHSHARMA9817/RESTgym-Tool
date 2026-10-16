@@ -176,6 +176,7 @@ Useful options:
 | `--apis pet-clinic,gestao-hospital` | which APIs to hunt on (default: all known) |
 | `--budget 600` | seconds per run (default 300) |
 | `--hours 8` / `--rounds 50` | how long to keep going |
+| `--jobs 3` | how many APIs to hunt at once (default: all of them) |
 | `--out runs` | where results are written |
 | `--no-engine` | skip the crash-fuzzing pass; semantic findings only |
 
@@ -193,6 +194,11 @@ Every reported finding carries the exact requests that produce it, rendered as
 is real and deterministic; whether the behaviour is *wrong* is a judgement
 about the API's intent, so each still deserves a human read before it is
 written up.
+
+APIs are hunted **concurrently**, one worker each, so throughput scales with how
+many you can run at once. Each API has its own containers and ports, so the
+workers never collide; `--jobs` caps how many run together when memory is tight
+(each API is a JVM, and gestao-hospital adds a MongoDB).
 
 Re-running against an existing `--out` directory resumes: findings already
 confirmed are not re-verified, and later rounds use new seeds, so they explore

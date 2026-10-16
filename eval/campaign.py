@@ -8,6 +8,13 @@ inside a run, or a Ctrl-C hours later.
 
     python3 -m eval.campaign --hours 8
     python3 -m eval.campaign --apis gestao-hospital --budget 600 --rounds 50
+    python3 -m eval.campaign --jobs 3 --hours 12        # three APIs at once
+
+APIs are hunted concurrently, one worker each, so wall-clock throughput scales
+with how many you can run at once. Each API has its own containers and ports
+(see eval/apis.py), so the workers never collide; --jobs caps how many run
+together when memory is tight. Workers share only the findings store, which is
+locked, and each keeps its own round counter and seeds.
 
 Writes into --out (default: runs/):
 
@@ -55,8 +62,16 @@ def _stop(signum, frame):
 
 
 class Campaign:
-    def __init__(self, apis: list[str], budget: float, out: str, engine_too: bool = True):
+    def __init__(self, apis: list[str], budget: float, out: str, engine_too: bool = True,
+                 jobs: int = 0):
         self.apis = apis
+        # How many APIs run at once. Each needs its own containers (a JVM, and
+        # for gestao-hospital a MongoDB too), so this is bounded by memory
+        # rather than CPU -- the work is almost entirely waiting on HTTP.
+        self.jobs = jobs or len(apis)
+        self._gate = asyncio.Semaphore(max(1, self.jobs))
+        self._lock_report = asyncio.Lock()
+        self.per_api: dict = {}
         self.budget = budget
         self.out = out
         self.engine_too = engine_too
@@ -170,7 +185,8 @@ class Campaign:
             "# Bug-hunting campaign",
             "",
             f"_Updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} · "
-            f"{self.rounds} round(s) over {hrs:.1f}h · {len(self.apis)} API(s)_",
+            f"{self.rounds} round(s) over {hrs:.1f}h · "
+            f"{len(self.apis)} API(s) run {self.jobs} at a time_",
             "",
             "Every finding below reproduced on a container restarted from scratch, "
             "using only the requests listed with it. Reproducing shows a finding is "
@@ -218,18 +234,16 @@ class Campaign:
             pass
 
     # ------------------------------------------------------------- the loop
-    async def run(self, rounds: int, hours: float) -> None:
-        deadline = self.started + hours * 3600 if hours else None
+    async def _worker(self, api: str, rounds: int, deadline) -> None:
+        """Hunt one API, round after round, independently of the others."""
         seed = 1
-        self.write_report()
+        done = 0
         while not STOP:
-            if rounds and self.rounds >= rounds:
+            if rounds and done >= rounds:
                 break
             if deadline and time.time() >= deadline:
                 break
-            for api in self.apis:
-                if STOP or (deadline and time.time() >= deadline):
-                    break
+            async with self._gate:          # bounded by --jobs
                 try:
                     await self.round_for(api, seed)
                 except Exception as e:
@@ -241,12 +255,21 @@ class Campaign:
                         stop(api)
                     except Exception:
                         pass
-            self.rounds += 1
+            done += 1
             seed += 1
-            self.write_report()
-            self.log(f"round {self.rounds} done; {len(self.verified)} confirmed so far")
+            self.rounds += 1
+            self.per_api[api] = done
+            async with self._lock_report:
+                self.write_report()
+            self.log(f"{api}: round {done} done; {len(self.verified)} confirmed overall")
+
+    async def run(self, rounds: int, hours: float) -> None:
+        deadline = self.started + hours * 3600 if hours else None
         self.write_report()
-        self.log(f"finished: {self.rounds} rounds, {len(self.verified)} confirmed findings")
+        await asyncio.gather(*(self._worker(api, rounds, deadline) for api in self.apis))
+        self.write_report()
+        self.log(f"finished: {self.rounds} rounds across {len(self.apis)} API(s), "
+                 f"{len(self.verified)} confirmed findings")
         self.log(f"report: {self.report_path}")
 
 
@@ -258,6 +281,8 @@ def main() -> int:
     ap.add_argument("--rounds", type=int, default=0, help="0 = until --hours elapses")
     ap.add_argument("--hours", type=float, default=0.0, help="0 = until --rounds done")
     ap.add_argument("--out", default="runs")
+    ap.add_argument("--jobs", type=int, default=0,
+                    help="how many APIs to hunt at once (default: all of them)")
     ap.add_argument("--no-engine", action="store_true",
                     help="skip the default engine pass (semantic findings only)")
     a = ap.parse_args()
@@ -272,8 +297,8 @@ def main() -> int:
     for s in (signal.SIGINT, signal.SIGTERM):
         signal.signal(s, _stop)
 
-    c = Campaign(apis, a.budget, a.out, engine_too=not a.no_engine)
-    c.log(f"starting: apis={apis} budget={a.budget}s "
+    c = Campaign(apis, a.budget, a.out, engine_too=not a.no_engine, jobs=a.jobs)
+    c.log(f"starting: apis={apis} jobs={c.jobs} budget={a.budget}s "
           f"{'rounds=' + str(a.rounds) if a.rounds else 'hours=' + str(a.hours)}")
     asyncio.run(c.run(a.rounds, a.hours))
     return 0
