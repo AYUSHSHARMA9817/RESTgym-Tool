@@ -39,9 +39,9 @@ down the gaps to see the step-by-step work.
 | # | Bug class | How it's found black-box | Status | What's missing |
 |---|---|---|---|---|
 | C1 | BOLA within one tenant (parent A's URL, parent B's child) | cross-entity path binding, flag a 2XX | **partial** | `cross_entity_access` crosses *resource* ids; it does not yet cross *user* ids |
-| C2 | **BOLA across users** (user A's token on user B's object) | log in as two users, use A's token on B's resource, expect 403/404 | **gap** | needs **multi-identity**: two authenticated sessions. The tool runs as one. This is the big one for VAmPI/crAPI |
+| C2 | **BOLA across users** (user A's token on user B's object) | log in as two users, use A's token on B's resource, expect 403/404 | **done** | — `cross_user_access` oracle; found & confirmed 2 real BOLA bugs in VAmPI |
 | C3 | **BFLA** (regular user reaching an admin-only operation) | call privileged operations with a low-privilege token | **gap** | needs two *roles* (admin + user) and a notion of which ops are privileged |
-| C4 | Missing auth entirely (sensitive op answers with no token) | send the request with the auth header stripped, expect 401/403 | **gap** | cheap to add: replay a successful authed request un-authed, flag a 2XX |
+| C4 | Missing auth entirely (sensitive op answers with no token) | send the request with the auth header stripped, expect 401/403 | **done** | — `missing_auth` oracle, keyed on the spec's `security` requirement |
 | C5 | Token flaws (none-alg JWT, no expiry check, weak signature) | tamper the token, replay | **gap** | JWT-specific; narrower, lower priority |
 
 ## D. Data integrity and state (the entity misbehaves)
