@@ -42,7 +42,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from eval.apis import APIS, start, stop                          # noqa: E402
+from eval.apis import APIS, auth_for, start, stop                          # noqa: E402
 from restleague.engine.client import ApiClient                   # noqa: E402
 from restleague.engine.strategy import Strategy                   # noqa: E402
 from restleague.findings import verify                           # noqa: E402
@@ -126,7 +126,7 @@ class Campaign:
         by_key = {o.key: o for o in ops}
 
         base = start(api)
-        client = ApiClient(base, timeout=10.0)
+        client = ApiClient(base, timeout=10.0, auth=auth_for(api))
         runner = TrackARunner(ops, base, budget_seconds=self.budget, seed=seed,
                               client=client, findings_file=self.findings_path, api=api)
         res = await runner.run_async()
@@ -146,7 +146,7 @@ class Campaign:
             try:
                 stop(api)
                 vbase = start(api)                 # a clean container per finding
-                vclient = ApiClient(vbase, timeout=10.0)
+                vclient = ApiClient(vbase, timeout=10.0, auth=auth_for(api))
                 ok = await verify(f, by_key, vclient,
                                   {cls.name: cls() for cls in ALL_ORACLES})
                 await vclient.close()
@@ -165,7 +165,7 @@ class Campaign:
             ebase = start(api)
             # Strategy directly rather than strategy.run(): that wrapper calls
             # asyncio.run(), which cannot nest inside this already-running loop.
-            eclient = ApiClient(ebase, timeout=10.0)
+            eclient = ApiClient(ebase, timeout=10.0, auth=auth_for(api))
             r = await Strategy(ops, ebase, budget_seconds=self.budget, seed=seed,
                                client=eclient).run_async()
             await eclient.close()
