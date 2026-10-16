@@ -156,11 +156,18 @@ class AsyncSequenceExecutor:
                 req = self._apply_attack(attack, req, op)
 
             if is_target and mutation is not None and mutation.duplicate_last:
-                # race probe: two identical in-flight copies of the same action
+                # race probe: two identical in-flight copies of the same action.
+                # Both are tagged "double_action" so the content oracles skip
+                # them and the race oracle recognises the pair; the second step
+                # carries the first's status in its bindings so the oracle can
+                # judge both outcomes from the one step it is handed.
+                req.mutation = "double_action"
                 twin = copy.deepcopy(req)
                 first, second = await asyncio.gather(self.client.send(req), self.client.send(twin))
                 for n, (r, resp) in enumerate(((req, first), (twin, second))):
                     step = Step(request=r, response=resp, bindings=dict(r.path_params))
+                    if n == 1:
+                        step.bindings["_twin_status"] = first.status
                     seq.append(step)
                     self._harvest(rkg, op, r, resp, dsmi)
                     if on_step is not None:

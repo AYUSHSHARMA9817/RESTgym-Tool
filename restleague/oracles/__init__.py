@@ -12,7 +12,9 @@ from .base import Oracle, OracleContext, stable_view, state_diff
 from .conformance import SchemaConformanceOracle
 from .crud import CrudRoundtripOracle, ZombieResourceOracle
 from .idempotency import IdempotencyOracle, RepeatedDeleteOracle, SafetyOracle
+from .lifecycle import DanglingReferenceOracle, RaceConditionOracle
 from .massassign import MassAssignmentOracle
+from .secondorder import SecondOrderInjectionOracle
 
 ALL_ORACLES = (
     SchemaConformanceOracle,
@@ -25,4 +27,7 @@ ALL_ORACLES = (
     SafetyOracle,
     IdempotencyOracle,
     RepeatedDeleteOracle,
+    RaceConditionOracle,
+    DanglingReferenceOracle,
+    SecondOrderInjectionOracle,
 )

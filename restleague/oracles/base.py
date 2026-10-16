@@ -197,6 +197,11 @@ class OracleContext:
     unauth_client: Any = None
     alt_client: Any = None
     rkg: Any = None                 # RelationalKnowledgeGraph, when available
+    # payload strings that were accepted (2XX) into a stored field, keyed by the
+    # resource type they were stored under. The second-order oracle reads this
+    # to connect a crash on a clean read to a payload planted by an earlier
+    # write. The runner maintains it across the whole campaign.
+    taint: dict = field(default_factory=dict)
     zombie_retries: int = 3         # bounded re-reads before flagging a zombie (eventual consistency)
     # Seconds, doubled per retry. Deliberately small: the loop is sequential,
     # so every sleep here stalls the whole run. At 0.25s the ladder cost 0.75s

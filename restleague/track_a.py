@@ -149,6 +149,7 @@ class TrackARunner:
         self._oracle_checks: dict[tuple, int] = {}
         self._oracle_window_start = time.monotonic()
         self._history: list = []
+        self._taint: dict = {}   # resource type -> stored injection payloads
 
     # ------------------------------------------------------------- the loop
     async def run_async(self) -> TrackAResult:
@@ -158,7 +159,8 @@ class TrackARunner:
         executor = AsyncSequenceExecutor(self._client, self.generate_request,
                                          pool=self.pool, seed=self.seed)
         ctx = OracleContext(ops=self.ops_by_key, client=self._client, rkg=self.rkg,
-                            unauth_client=self._unauth_client, alt_client=self._alt_client)
+                            unauth_client=self._unauth_client, alt_client=self._alt_client,
+                            taint=self._taint)
 
         start = time.monotonic()
         deadline = start + self.budget
@@ -241,8 +243,12 @@ class TrackARunner:
 
     def _account(self, seq: Sequence) -> None:
         """Record coverage, 5XXs and newly observed transitions from one sequence."""
+        from .oracles.secondorder import record_taint
         self.steps_sent += len(seq.steps)
         for step in seq.steps:
+            op = self.ops_by_key.get(step.request.op_key)
+            if op is not None:
+                record_taint(self._taint, op, step.request, step.response)
             resp, req = step.response, step.request
             if resp is None:
                 continue

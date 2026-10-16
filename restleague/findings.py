@@ -181,7 +181,12 @@ async def replay(finding: Finding, ops_by_key: dict, client) -> Sequence:
     """
     rkg = RelationalKnowledgeGraph(seed=0)
     seq = Sequence(target_op_key=finding.op_key)
-    for rec in finding.requests:
+    # a race finding only means anything if its final request is fired twice at
+    # once, as the original run did -- replaying it once could never reproduce
+    # "both concurrent copies succeeded"
+    race = finding.oracle == "race_condition"
+    records = list(finding.requests)
+    for i, rec in enumerate(records):
         record = rec if isinstance(rec, RequestRecord) else RequestRecord(**rec)
         req = record.build()
         try:
@@ -190,6 +195,18 @@ async def replay(finding: Finding, ops_by_key: dict, client) -> Sequence:
             bindings = None
         if bindings:
             req.path_params.update(bindings)
+
+        if race and i == len(records) - 1:
+            import asyncio
+            req.mutation = "double_action"
+            twin = _copy_request(req)
+            first, second = await asyncio.gather(client.send(req), client.send(twin))
+            seq.append(Step(request=req, response=first, bindings=dict(req.path_params)))
+            tw = Step(request=twin, response=second, bindings=dict(twin.path_params))
+            tw.bindings["_twin_status"] = first.status
+            seq.append(tw)
+            break
+
         resp = await client.send(req)
         seq.append(Step(request=req, response=resp, bindings=dict(req.path_params)))
         op = ops_by_key.get(req.op_key)
@@ -199,6 +216,11 @@ async def replay(finding: Finding, ops_by_key: dict, client) -> Sequence:
             except Exception:
                 pass
     return seq
+
+
+def _copy_request(req: Request) -> Request:
+    import copy
+    return copy.deepcopy(req)
 
 
 async def verify(finding: Finding, ops_by_key: dict, client, oracles: dict,

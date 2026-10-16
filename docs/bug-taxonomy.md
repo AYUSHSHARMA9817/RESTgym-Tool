@@ -30,7 +30,7 @@ down the gaps to see the step-by-step work.
 |---|---|---|---|---|
 | B1 | SQL / NoSQL injection (error-based) | injection payloads, watch for 5XX or DB-error strings | **done** | — `SQLI`/`NOSQLI` families |
 | B2 | Command / template / XXE / header injection, path traversal | payload families on string slots | **done** | — all families present in `mutations.py` |
-| B3 | **Second-order injection** (stored via one endpoint, fires on another) | store a payload, then read it back through a *different* endpoint and watch *that* one break | **gap** | the single highest-value gap for a stateful tool; we store payloads but don't correlate a later crash to an earlier write |
+| B3 | **Second-order injection** (stored via one endpoint, fires on another) | store a payload, then read it back through a *different* endpoint and watch *that* one break | **done** | — `second_order_injection` oracle + taint registry; violation when the error echoes the stored payload, warning on correlation alone |
 | B4 | Blind injection (time-based, no error leaked) | measure response-time deltas for a sleep payload | **gap** | we send `sleep()` payloads but don't compare timing to flag blind cases |
 | B5 | Reflected XSS / unescaped reflection | send a marker, check it comes back unescaped | **gap** | we send XSS payloads but only flag a 5XX, not an unescaped reflection |
 
@@ -53,8 +53,8 @@ down the gaps to see the step-by-step work.
 | D3 | Mass assignment, **echoed** (undeclared field stored and returned) | send `isAdmin`/`role`, read it back | **done** | — `mass_assignment` |
 | D4 | Mass assignment, **hidden** (stored but never echoed) | send the field, then check for a *behavioural* change (does the account now have admin powers?) | **gap** | VAmPI proved this: `admin:true` sticks but `GET` never returns it. Needs behaviour-based confirmation, not read-back |
 | D5 | Illegal state transition (pay an already-paid order) | learn the lifecycle, attempt an operation never seen from that state | **partial** | `illegal_transition` + DSMI exist; we flag a 5XX but not a *silently accepted* illegal transition |
-| D6 | Dangling reference (child usable after its parent is deleted) | delete a parent, then use an orphaned child id | **gap** | `cascade_delete` already records the orphans; we just don't go use them |
-| D7 | Race / double-action (double-spend, duplicate create) | fire the state-changing call twice concurrently, compare outcomes | **partial** | `double_action` sends the pair; no oracle yet judges "both succeeded when only one should" |
+| D6 | Dangling reference (child usable after its parent is deleted) | delete a parent, then use an orphaned child id | **done** | — `dangling_reference` oracle; probes orphans via their standalone route |
+| D7 | Race / double-action (double-spend, duplicate create) | fire the state-changing call twice concurrently, compare outcomes | **done** | — `race_condition` oracle; DELETE both-2XX = violation, concurrent create = warning; verified by concurrent re-fire |
 
 ## E. Contract and safety semantics (RFC 9110 / OpenAPI)
 
