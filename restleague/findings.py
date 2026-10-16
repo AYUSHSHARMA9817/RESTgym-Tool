@@ -78,8 +78,15 @@ class Finding:
 
     @classmethod
     def from_json(cls, d: dict) -> "Finding":
-        d = dict(d)
-        d["requests"] = [RequestRecord(**r) for r in d.get("requests", [])]
+        """Rebuild from stored JSON, ignoring keys we did not write ourselves.
+
+        Reports add their own fields (a rendered reproduction, reviewer notes),
+        and a stored finding has to survive being read back after that.
+        """
+        known = {f for f in cls.__dataclass_fields__}
+        d = {k: v for k, v in d.items() if k in known}
+        d["requests"] = [r if isinstance(r, RequestRecord) else RequestRecord(**r)
+                         for r in d.get("requests", [])]
         return cls(**d)
 
     def as_curl(self, base_url: str = "http://HOST:PORT") -> list[str]:

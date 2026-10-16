@@ -154,3 +154,46 @@ no LLM, no GPU and no network access except the API under test.
 ## Authors
 
 Ayush Sharma, Sayan Mandal and Biraj Sarkar (Indian Institute of Technology Guwahati).
+
+## Unattended bug hunting
+
+`eval/campaign.py` runs the tool against the containerised APIs for as long as
+you let it, verifying each finding on a freshly restarted container before
+reporting it. Start it and walk away.
+
+```bash
+# fetch the APIs once (clones the RESTgym API repos)
+sh eval/get_apis.sh ~/apis
+
+# then, from the tool directory
+RL_APIS_DIR=~/apis python3 -m eval.campaign --hours 8
+```
+
+Useful options:
+
+| option | meaning |
+|---|---|
+| `--apis pet-clinic,gestao-hospital` | which APIs to hunt on (default: all known) |
+| `--budget 600` | seconds per run (default 300) |
+| `--hours 8` / `--rounds 50` | how long to keep going |
+| `--out runs` | where results are written |
+| `--no-engine` | skip the crash-fuzzing pass; semantic findings only |
+
+It writes as it goes, so results survive a crash or a Ctrl-C:
+
+```text
+runs/REPORT.md       regenerated every round; safe to read mid-run
+runs/verified.jsonl  findings that reproduced on a clean container
+runs/findings.jsonl  everything found, verified or not
+runs/campaign.log    progress and failures
+```
+
+Every reported finding carries the exact requests that produce it, rendered as
+`curl` commands that run against a fresh instance. Reproducing shows a finding
+is real and deterministic; whether the behaviour is *wrong* is a judgement
+about the API's intent, so each still deserves a human read before it is
+written up.
+
+Re-running against an existing `--out` directory resumes: findings already
+confirmed are not re-verified, and later rounds use new seeds, so they explore
+rather than repeat.
