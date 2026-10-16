@@ -90,8 +90,11 @@ OWNER_BODY = RequestBody(schema={"type": "object",
                                  "required": ["firstName", "lastName"]})
 OWNER_ID = Parameter("ownerId", "path", True, {"type": "integer"})
 PET_ID = Parameter("petId", "path", True, {"type": "integer"})
+# a real owner-GET returns the whole object, so the round-trip oracle can tell
+# that a written field (lastName) was dropped
 OWNER_SCHEMA = {"type": "object", "properties": {"id": {"type": "integer"},
-                                                 "firstName": {"type": "string"}}}
+                                                 "firstName": {"type": "string"},
+                                                 "lastName": {"type": "string"}}}
 
 OPS = [
     Operation("POST", "/owners", request_body=OWNER_BODY, responses={"201": OWNER_SCHEMA}),
