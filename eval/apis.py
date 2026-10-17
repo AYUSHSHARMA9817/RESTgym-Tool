@@ -122,6 +122,23 @@ APIS["crapi"] = {
 }
 
 
+_GN_COMPOSE = os.environ.get(
+    "RL_GN_COMPOSE",
+    os.path.join(os.path.dirname(__file__), "..", "..", "genome-nexus", "docker-compose.yml"))
+
+APIS["genome-nexus"] = {
+    # Genome Nexus: a real, production bioinformatics annotation API (cBioPortal),
+    # not deliberately vulnerable. It is the soundness test -- on correct code the
+    # tool should report ~0 false violations, mostly schema/robustness signal.
+    # Prebuilt images (gn-spring-boot + a data-loaded gn-mongo), launched via
+    # compose. No auth, no seeding: a public read API.
+    "port": 8888, "probe": "/version",
+    "compose": os.path.abspath(_GN_COMPOSE), "compose_up": ["gn-web"],
+    "compose_health": "gn-web",   # image has no healthcheck; probe fallback is used
+    "fast_verify": True,          # heavy stack: verify live rather than per-finding restart
+}
+
+
 def auth_for(api: str):
     """The primary identity's auth provider for `api`, or None. Built from the
     per-API config so concurrent campaigns on different APIs do not share one

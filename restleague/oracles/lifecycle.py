@@ -27,6 +27,32 @@ _PARAM_RE = re.compile(r"\{([^}]+)\}")
 NON_IDEMPOTENT = ("POST", "PUT", "PATCH", "DELETE")
 
 
+def _created_a_resource(resp) -> bool:
+    """HTTP signals that a POST actually created a resource, rather than being a
+    query-style POST that returns data (batch lookups, search, annotation).
+
+    Without one of these, two concurrent 2XX responses are expected, not a
+    double-create -- which is what produced race-condition warning noise on
+    genome-nexus's ``POST /annotation`` batch endpoints (they take a list of
+    variants and return their annotations; nothing is created). A real create
+    answers 201, or returns a Location, or echoes the new entity's own id.
+    """
+    if resp is None:
+        return False
+    if resp.status == 201:
+        return True
+    headers = resp.headers or {}
+    if headers.get("location") or headers.get("Location"):
+        return True
+    body = resp.json
+    if isinstance(body, dict):
+        for k in ("id", "Id", "ID", "_id", "uuid"):
+            v = body.get(k)
+            if v is not None and not isinstance(v, (dict, list)):
+                return True
+    return False
+
+
 class RaceConditionOracle(Oracle):
     """Two concurrent copies of a one-shot action must not both take effect."""
     name = "race_condition"
@@ -51,7 +77,8 @@ class RaceConditionOracle(Oracle):
                                  for t in ("login", "logout", "signin", "signout",
                                            "token", "session", "authenticate", "refresh"))
             is_collection_post = (method == "POST" and not is_auth_action
-                                  and not _PARAM_RE.search(req.path.rstrip("/").rsplit("/", 1)[-1]))
+                                  and not _PARAM_RE.search(req.path.rstrip("/").rsplit("/", 1)[-1])
+                                  and _created_a_resource(resp))
             if method == "DELETE":
                 out.append(self.violation(
                     req.op_key,

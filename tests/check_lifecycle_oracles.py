@@ -44,6 +44,27 @@ v = run(RaceConditionOracle(), race_pair("POST", "/items", 201, 201, "POST /item
 assert v and v[0].severity == "warning" and "two resources" in v[0].summary, v
 print("OK   race warns on two concurrent creates both succeeding")
 
+# a 200 collection-POST that echoes a new id is still a create -> warning
+def race_pair_json(method, path, s1, s2, op_key, body):
+    seq = Sequence(target_op_key=op_key)
+    r1 = Request(method, path, op_key=op_key, mutation="double_action")
+    r2 = Request(method, path, op_key=op_key, mutation="double_action")
+    seq.append(Step(r1, Response(status=s1, json=body)))
+    twin = Step(r2, Response(status=s2, json=body))
+    twin.bindings["_twin_status"] = s1
+    seq.append(twin)
+    return seq
+
+v = run(RaceConditionOracle(), race_pair_json("POST", "/posts", 200, 200, "POST /posts", {"id": 7}))
+assert v and v[0].severity == "warning", "a 200 create that echoes an id should still warn"
+print("OK   race warns on a 200 create that returns a new id")
+
+# a query-style POST (200, list response, no id/Location) -> silent (the GN fix)
+v = run(RaceConditionOracle(), race_pair_json("POST", "/annotation", 200, 200,
+                                              "POST /annotation", [{"variant": "x"}]))
+assert v == [], f"query-POST with no create signal must not fire: {v}"
+print("OK   race ignores query-style POSTs with no create signal (genome-nexus)")
+
 # a normal (non-double_action) step is ignored entirely
 plain = Sequence()
 plain.append(Step(Request("DELETE", "/items/{id}", path_params={"id": 1}, op_key="DELETE /items/{id}"),
