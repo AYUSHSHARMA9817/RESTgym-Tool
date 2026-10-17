@@ -204,7 +204,8 @@ class Campaign:
                 rec["curl"] = f.as_curl(f"http://HOST:{APIS[api]['port']}")
                 self.verified.append(rec)
                 self._append(self.verified_path, rec)
-                self.log(f"  CONFIRMED [{f.oracle}] {f.op_key} :: {f.summary[:70]}")
+                tag = "WARNING  " if f.severity == "warning" else "VIOLATION"
+                self.log(f"  {tag} [{f.oracle}] {f.op_key} :: {f.summary[:70]}")
 
         if self.engine_too and not STOP:
             stop(api)
@@ -218,6 +219,12 @@ class Campaign:
             self.log(f"{api} seed={seed}: engine {r.unique_5xx} unique 5XX, "
                      f"{r.operations_covered}/{len(ops)} covered")
             self._note_crashes(api, r.faults)
+
+    def _counts(self) -> tuple[int, int]:
+        """(violations, warnings) among verified findings -- warnings are
+        reproduced-but-low-signal and kept out of the headline count."""
+        warn = sum(1 for v in self.verified if v.get("severity") == "warning")
+        return len(self.verified) - warn, warn
 
     def _note_crashes(self, api: str, faults: dict) -> None:
         bucket = self.crashes.setdefault(api, {})
@@ -234,22 +241,29 @@ class Campaign:
             f"{self.rounds} round(s) over {hrs:.1f}h · "
             f"{len(self.apis)} API(s) run {self.jobs} at a time_",
             "",
-            "Every finding below reproduced on a container restarted from scratch, "
-            "using only the requests listed with it. Reproducing shows a finding is "
-            "real and deterministic; whether the behaviour is *wrong* is a judgement "
-            "about the API's intent, so each still deserves a human read.",
-            "",
-            "## Semantic findings (verified)",
+            "Every finding below reproduced using only the requests listed with "
+            "it -- reproducing shows it is real and deterministic. Findings are "
+            "split by severity: **violations** are contract breaks worth acting "
+            "on; **warnings** reproduced too but are lower-signal (benign "
+            "concurrency, reflection in a non-HTML body, a strict-schema "
+            "mismatch) and need a human read before they count as bugs.",
             "",
         ]
-        if not self.verified:
+        # A finding is a violation unless the oracle marked it a warning; warnings
+        # are kept out of the headline so reproduced-but-low-signal results never
+        # masquerade as confirmed vulnerabilities.
+        violations = [v for v in self.verified if v.get("severity") != "warning"]
+        warnings = [v for v in self.verified if v.get("severity") == "warning"]
+
+        lines += [f"## Confirmed violations ({len(violations)})", ""]
+        if not violations:
             lines += ["_None confirmed yet._", ""]
         else:
-            by_oracle = Counter(v["oracle"] for v in self.verified)
+            by_oracle = Counter(v["oracle"] for v in violations)
             lines += ["| count | oracle |", "|---|---|"]
             lines += [f"| {n} | `{o}` |" for o, n in by_oracle.most_common()]
             lines += [""]
-            for i, v in enumerate(self.verified, 1):
+            for i, v in enumerate(violations, 1):
                 lines += [f"### {i}. {v['summary']}", "",
                           f"- **oracle**: `{v['oracle']}`",
                           f"- **operation**: `{v['op_key']}`",
@@ -257,6 +271,15 @@ class Campaign:
                           "Reproduce from a clean instance:", "", "```bash"]
                 lines += v.get("curl", [])[:8]
                 lines += ["```", ""]
+
+        lines += [f"## Warnings — reproduced, need human review ({len(warnings)})", ""]
+        if not warnings:
+            lines += ["_None._", ""]
+        else:
+            lines += ["| oracle | operation | note |", "|---|---|---|"]
+            for v in warnings:
+                lines += [f"| `{v['oracle']}` | `{v['op_key']}` | {v['summary'][:80]} |"]
+            lines += [""]
 
         lines += ["## Crashes (unique 5XX)", ""]
         total = sum(len(v) for v in self.crashes.values())
@@ -271,7 +294,8 @@ class Campaign:
         lines += ["## Run health", "",
                   f"- rounds completed: {self.rounds}",
                   f"- rounds that errored: {self.failures}",
-                  f"- findings confirmed: {len(self.verified)}",
+                  f"- violations confirmed: {len(violations)}",
+                  f"- warnings (need review): {len(warnings)}",
                   f"- raw findings seen: {len(self.seen)}", ""]
         try:
             with open(self.report_path, "w") as fh:
@@ -307,15 +331,17 @@ class Campaign:
             self.per_api[api] = done
             async with self._lock_report:
                 self.write_report()
-            self.log(f"{api}: round {done} done; {len(self.verified)} confirmed overall")
+            v, w = self._counts()
+            self.log(f"{api}: round {done} done; {v} violation(s) + {w} warning(s) overall")
 
     async def run(self, rounds: int, hours: float) -> None:
         deadline = self.started + hours * 3600 if hours else None
         self.write_report()
         await asyncio.gather(*(self._worker(api, rounds, deadline) for api in self.apis))
         self.write_report()
+        v, w = self._counts()
         self.log(f"finished: {self.rounds} rounds across {len(self.apis)} API(s), "
-                 f"{len(self.verified)} confirmed findings")
+                 f"{v} violation(s) + {w} warning(s)")
         self.log(f"report: {self.report_path}")
 
 
