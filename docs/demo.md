@@ -18,9 +18,6 @@ it before recording** and start the recording at the fuzz step.
 ```bash
 pip install -r requirements.txt
 mkdir -p ~/crapi && curl -fsSL \
-  https://raw.githubusercontent.com/OWASP/crapi/develop/deploy/docker-compose.yml \
-  -o ~/crapi/docker-compose.yml || \
-curl -fsSL \
   https://raw.githubusercontent.com/OWASP/crapi/develop/deploy/docker/docker-compose.yml \
   -o ~/crapi/docker-compose.yml
 
