@@ -181,6 +181,12 @@ def stop(api: str) -> None:
     if conf.get("compose"):
         # -v wipes the data volumes so each start is clean state
         _compose(conf, "down", "-v", "--remove-orphans", check=False)
+        stub = conf.get("compose_stub")
+        if stub:
+            # started with a plain `docker run` (see _start_compose), so
+            # `compose down` never sees it and it was left running after every
+            # stop -- remove it explicitly.
+            _docker("rm", "-f", stub["alias"], check=False)
         return
     _docker("rm", "-f", f"rl-{api}", f"rl-{api}-db", check=False)
 
