@@ -5,8 +5,8 @@ brings the API up once, runs Track A against the live instance, prints the
 confirmed violations with a copy-pasteable curl, and leaves the stack running so
 the reproduction command works on camera.
 
-    python -m scripts.demo                 # crapi, 90s
-    BUDGET=45 python -m scripts.demo       # shorter, for a tight clip
+    python -m scripts.demo                 # crapi, 200s (finds all 5)
+    BUDGET=90 python -m scripts.demo       # shorter; usually finds 3-4 of the 5
     python -m scripts.demo vampi           # a different wired-up target
 
 Stop the target afterwards with:
@@ -28,7 +28,7 @@ from restleague.spec.parser import parse_spec                        # noqa: E40
 from restleague.track_a import TrackARunner                          # noqa: E402
 
 API = sys.argv[1] if len(sys.argv) > 1 else "crapi"
-BUDGET = float(os.environ.get("BUDGET", "90"))
+BUDGET = float(os.environ.get("BUDGET", "200"))
 SEED = int(os.environ.get("SEED", "7"))
 
 _AUTHZ = {"cross_user_access", "missing_auth", "broken_function_auth", "cross_entity_access"}

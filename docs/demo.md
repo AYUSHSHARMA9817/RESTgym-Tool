@@ -34,11 +34,12 @@ Keep it to three beats: the one-liner, the run, the reproduce.
 # BEAT 1 — what it does (type this as a comment, or say it in voiceover)
 #   SpecSeed: find broken-authorization bugs in a REST API, black-box.
 
-# BEAT 2 — run it against OWASP crAPI (already up); ~60–120s of fuzzing
-python -m eval.campaign --apis crapi --budget 90 --rounds 1 --no-engine --out runs/demo
+# BEAT 2 — run it against OWASP crAPI; 200s of fuzzing, finds all 5 violations.
+# Use scripts.demo, not eval.campaign: the campaign tears the target down at the
+# end, which would break the live curl below. scripts.demo leaves it running.
+python -m scripts.demo
 
-# BEAT 3 — show the confirmed violations, then reproduce one with curl
-sed -n '/## Confirmed violations/,/## Warnings/p' runs/demo/REPORT.md
+# BEAT 3 — the output already lists each violation with its curl; reproduce one
 ```
 
 Then run the printed `curl` for the vehicle-location BOLA to land the punchline —
