@@ -1,156 +1,151 @@
 # SpecSeed
 
-SpecSeed is a first-prototype automated black-box REST API testing tool for
-REST League 2027. It uses an OpenAPI specification, generated requests, HTTP
-feedback, resource reuse, operation ordering, and request mutations to explore
-REST APIs.
+**Find broken-authorization bugs (BOLA / BFLA — the #1 API vulnerability) in your REST API before you ship.**
+Black-box, deterministic, no AI required — and it stays silent on correct code.
 
-## Requirements
+SpecSeed drives every synthesized request sequence with **three identities at once** — the resource owner, a second legitimate user, and an unauthenticated client — and compares what each is allowed to see. That cross-identity comparison is what turns three clean `200`s into a finding. Give it an OpenAPI spec and a running instance; it needs no source code, no database access, and no remote LLM.
 
-- Docker
-- Linux, macOS, or Windows with WSL2 and Docker Desktop WSL integration
-- A RESTgym checkout
+> Why not a normal fuzzer? A single-client fuzzer that gets `200 OK` from `GET /orders/42` has no way to know that the token belongs to user B and the order belongs to user A. SpecSeed does, because it asks the other identities too.
 
-The tool does not require source-code access, database-schema access, internal
-logs, or a remote LLM.
+---
 
-## Installation
+## What makes it different
 
-Place the submitted `specseed` directory under the RESTgym repository:
+- **Authorization-first.** Purpose-built for BOLA, BFLA, and broken/missing authentication — OWASP API Security's #1 and #5 — not just crashes and schema checks.
+- **Sound by design.** Every finding is re-run, replayed on a clean instance, and split into *violations* vs *warnings*. On a real, correct API (Genome Nexus) it reports **zero false violations**. It doesn't cry wolf.
+- **Deterministic and private.** Seeded search, reproducible runs, no data leaves your network, no per-scan token bill. The optional LLM assist is **off by default** and, when on, is cache-replayable offline.
+- **Every finding ships a `curl`.** Reproduce any result against a fresh instance with the exact command SpecSeed records.
 
-```text
-restgym/
-└── tools/
-    └── specseed/
+---
+
+## Quickstart (see it find a real bug)
+
+SpecSeed ships with OWASP **crAPI** wired up — a deliberately-vulnerable API that is safe and legal to test. In a few minutes you'll watch it find a real BOLA.
+
+```bash
+# 1. deps (Python 3.10+; a virtualenv is recommended)
+pip install -r requirements.txt            # httpx, PyYAML
+
+# 2. get the crAPI compose file (one time)
+mkdir -p ~/crapi && curl -fsSL \
+  https://raw.githubusercontent.com/OWASP/crapi/develop/deploy/docker/docker-compose.yml \
+  -o ~/crapi/docker-compose.yml
+
+# 3. bring crAPI up and hunt it (one command — it starts the stack, runs, verifies)
+python -m eval.campaign --apis crapi --budget 300 --rounds 1 --no-engine --out runs/
+
+# 4. read the report
+cat runs/REPORT.md
 ```
 
-The directory must contain:
+You'll see confirmed violations like:
 
 ```text
-tools/specseed/
-├── Dockerfile
-├── config.sh
-├── restgym-tool-config.yml
-├── requirements.txt
-├── restleague/
-├── tests/
-└── docs/
+## Confirmed violations (5)
+
+### 1. a second user read back the exact data the first user saw from a protected resource
+- oracle: cross_user_access
+- operation: GET /identity/api/v2/vehicle/{vehicleId}/location
+
+Reproduce from a clean instance:
+curl -s "$BASE/identity/api/v2/vehicle/<id>/location" -H "Authorization: Bearer $TOKEN_B"
+# -> 200 with another user's GPS location + owner email
 ```
 
-The RESTgym repository supplies the API containers and mounts the API
-specifications for each experiment.
+> A clean, config-driven CLI (`specseed scan --config target.yaml`) and a GitHub Action are on the [roadmap](#roadmap). Today the campaign runner is the entry point.
 
-## Docker build
+### Point it at your own API
 
-Run this command from the RESTgym repository root:
+Add an entry to `eval/apis.py` (spec path, base URL, two test identities, scope), or follow an existing entry such as `vampi` / `crapi` as a template. Then:
+
+```bash
+python -m eval.campaign --apis my-api --hours 1 --no-engine --out runs/
+```
+
+---
+
+## How it works
+
+```
+spec + running API
+      │
+      ▼
+scheduler → synthesizer → mutator → executor → oracles → reward ↺
+              (knowledge graph · state machine feed back)
+      │
+      ▼
+reproduce → verify on clean instance → split violations / warnings
+```
+
+- **Relational Knowledge Graph** tracks who-owns-whom, so nested calls get ids that are actually related (the pet that belongs to *this* owner), not a wrong-but-type-correct id that 404s.
+- **17 oracles**, each an isolated class: authorization (`cross_user_access`, `broken_function_auth`, `missing_auth`, `cross_entity_access`, `mass_assignment`), contract/CRUD (`schema_conformance`, `crud_roundtrip`, `zombie_resource`), lifecycle/concurrency (`safety`, `idempotency`, `repeated_delete`, `race_condition`, `dangling_reference`), and injection/response (`second_order_injection`, `reflected_payload`, `timing_injection`, `cors_misconfig`).
+- **Soundness pipeline**: reproduction re-check → replay verification → severity split, plus normalization tolerance and per-API scoping for public-by-design endpoints.
+- **Optional LLM planner** (`LLM_PLANNER=1`): proposes *values* to reach deeper states; it never judges a response, so a wrong hint can't create a false finding. Cached for offline-reproducible runs.
+
+Full design and evaluation: [`docs/paper.md`](docs/paper.md) · architecture notes in [`docs/architecture/`](docs/architecture/).
+
+---
+
+## Results
+
+| Target | What it is | Result |
+|---|---|---|
+| OWASP crAPI (44 ops) | deliberately vulnerable | 5 confirmed authz/auth violations (BOLA ×2, BFLA, broken-auth ×2) |
+| OWASP VAmPI (14 ops) | deliberately vulnerable | 6 OWASP-Top-10 findings |
+| Genome Nexus (23 ops) | **real, correct** production API | **0 false violations** (soundness test) |
+
+A one-hour unattended run on crAPI issued 162k requests at a peak of 159 MB with zero tool errors.
+
+---
+
+## How it compares
+
+| Tool | Approach | Authz bugs | Soundness focus | LLM role |
+|---|---|---|---|---|
+| RESTler | stateful grammar fuzzing | crash/5XX | — | none |
+| EvoMaster | evolutionary, white+black box | coverage | — | none |
+| Schemathesis | property-based from OpenAPI | schema | — | none |
+| **SpecSeed** | **stateful + 3-identity differential** | **BOLA/BFLA** | **reproduce + verify + split** | **reach only** |
+
+SpecSeed is an authorization-and-semantics pre-check, not a full pentest. It won't find deep business-logic, client-side, or infrastructure defects.
+
+---
+
+## Roadmap
+
+- `specseed scan --config target.yaml` — config-driven targets and a proper CLI.
+- A **GitHub Action** that fails a build on *new* authorization violations (baseline + diff) — a CI security gate.
+- In-protocol spec discovery for APIs that don't ship an OpenAPI document.
+
+---
+
+## Contributing
+
+Issues and PRs welcome. New bug classes are added as isolated oracle classes in `restleague/oracles/` — one class, one `check(sequence, context)` method — so a new detector can't destabilize the others. Run the suite with:
+
+```bash
+for t in tests/check_*.py; do python -m "tests.${t##*/check_}" ; done   # or: python -m tests.check_oracles
+```
+
+---
+
+## Running in the RESTgym competition harness
+
+SpecSeed began as an entry for REST League 2027 and still runs under RESTgym. Place the directory at `restgym/tools/specseed/`, then from the RESTgym root:
 
 ```bash
 docker build -f tools/specseed/Dockerfile -t restgym-specseed .
+./restgym.sh b && ./restgym.sh l && ./restgym.sh v && ./restgym.sh a
 ```
 
-The Dockerfile installs all Python dependencies during image build. No package
-installation is required while the tool is testing an API.
+RESTgym provides `HOST`, `PORT`, `API`, and `TIME_BUDGET`; the spec is mounted at `/specifications/$API-openapi.json`. Optional auth is configured via `AUTH_LOGIN_PATH`, `AUTH_LOGIN_BODY`, `AUTH_TOKEN_FIELD`, `AUTH_TOKEN_HEADER`, `AUTH_TOKEN_PREFIX`. The frozen competition engine (`restleague/engine`, `restleague/spec`) is unchanged; all authorization work is additive ("Track A").
 
-## RESTgym execution
-
-From the RESTgym repository root:
-
-```bash
-chmod +x restgym.sh
-./restgym.sh b
-./restgym.sh l
-./restgym.sh v
-./restgym.sh a
-```
-
-The commands respectively build images, launch experiments, verify raw
-experiment data, and analyze verified results.
-
-RESTgym prompts for the number of repetitions. The official competition uses
-five repetitions and a one-hour budget per API. Use a shorter budget during
-local smoke tests.
-
-## Runtime environment
-
-RESTgym provides these environment variables to the tool:
-
-| Variable | Meaning |
-|---|---|
-| `HOST` | Hostname of the target API or RESTgym proxy |
-| `PORT` | Port of the target API or RESTgym proxy |
-| `API` | RESTgym API slug |
-| `TIME_BUDGET` | Testing budget in minutes |
-
-The tool sends requests to:
-
-```text
-http://$HOST:$PORT
-```
-
-The selected OpenAPI specification is read from:
-
-```text
-/specifications/$API-openapi.json
-```
-
-RESTgym mounts this specification into the tool container. The tool does not
-hardcode any of the benchmark API implementations.
-
-## Authentication
-
-Optional authentication can be configured through environment variables:
-
-```text
-AUTH_HEADER
-AUTH_LOGIN_PATH
-AUTH_LOGIN_BODY
-AUTH_TOKEN_FIELD
-AUTH_TOKEN_HEADER
-AUTH_TOKEN_PREFIX
-```
-
-These are only needed for APIs requiring authentication.
-
-## Competition metrics
-
-SpecSeed sends the HTTP requests. RESTgym and its independent Restats
-infrastructure record the traffic and compute:
-
-- Unique 5XX fault detection
-- Operation coverage
-- Method, statement, and branch coverage
-- Testing-efficiency AUC
-
-SpecSeed does not require access to API source code or internal coverage data.
-
-## Local checks
-
-From `tools/specseed/`, the following checks can be run:
-
-```bash
-python -m tests.check_parser
-python -m tests.check_values
-python -m tests.check_pool
-python -m pytest tests/test_engine.py -q
-```
-
-## Tool maturity
-
-SpecSeed is a working first prototype. It has been packaged as a RESTgym
-Docker tool and validated through a local build, a smoke experiment, RESTgym
-data verification, and result analysis. It has not yet been field-tested in
-the organizers' final competition environment.
+---
 
 ## License
 
-SpecSeed is released under the Apache License 2.0; see [`LICENSE`](LICENSE).
-
-## Tool manifest
-
-[`restgym-tool-manifest.yaml`](restgym-tool-manifest.yaml) holds the metadata RESTgym
-needs to run the tool: id `specseed`, OpenAPI 3.0 JSON specifications, a time budget,
-no LLM, no GPU and no network access except the API under test.
+Apache License 2.0 — see [`LICENSE`](LICENSE).
 
 ## Authors
 
-Ayush Sharma, Sayan Mandal and Biraj Sarkar (Indian Institute of Technology Guwahati).
+Ayush Sharma, Sayan Mandal, and Biraj Sarkar — Indian Institute of Technology Guwahati.
