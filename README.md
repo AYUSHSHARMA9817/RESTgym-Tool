@@ -3,6 +3,8 @@
 **Find broken-authorization bugs (BOLA / BFLA — the #1 API vulnerability) in your REST API before you ship.**
 Black-box, deterministic, no AI required — and it stays silent on correct code.
 
+![SpecSeed finding a live BOLA on OWASP crAPI](docs/demo.gif)
+
 SpecSeed drives every synthesized request sequence with **three identities at once** — the resource owner, a second legitimate user, and an unauthenticated client — and compares what each is allowed to see. That cross-identity comparison is what turns three clean `200`s into a finding. Give it an OpenAPI spec and a running instance; it needs no source code, no database access, and no remote LLM.
 
 > Why not a normal fuzzer? A single-client fuzzer that gets `200 OK` from `GET /orders/42` has no way to know that the token belongs to user B and the order belongs to user A. SpecSeed does, because it asks the other identities too.
