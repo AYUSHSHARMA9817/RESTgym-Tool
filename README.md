@@ -33,34 +33,38 @@ mkdir -p ~/crapi && curl -fsSL \
   https://raw.githubusercontent.com/OWASP/crapi/develop/deploy/docker/docker-compose.yml \
   -o ~/crapi/docker-compose.yml
 
-# 3. bring crAPI up and hunt it (one command — it starts the stack, runs, verifies)
-python -m eval.campaign --apis crapi --budget 300 --rounds 1 --no-engine --out runs/
-
-# 4. read the report
-cat runs/REPORT.md
+# 3. bring crAPI up and hunt it (one command — it starts the stack and leaves
+#    it running, so every finding's curl below reproduces live)
+python -m scripts.demo
 ```
 
 You'll see confirmed violations like:
 
 ```text
-## Confirmed violations (5)
+== CONFIRMED VIOLATIONS: 5 (+ 4 warnings for review) ==
 
-### 1. a second user read back the exact data the first user saw from a protected resource
-- oracle: cross_user_access
-- operation: GET /identity/api/v2/vehicle/{vehicleId}/location
+5. [cross_user_access] GET /identity/api/v2/vehicle/{vehicleId}/location
+   a second user read back the exact data the first user saw from a protected resource
+     curl -i -X GET 'http://localhost:8888/identity/api/v2/vehicle/<id>/location' -H 'Authorization: Bearer $TOKEN_B'
 
-Reproduce from a clean instance:
-curl -s "$BASE/identity/api/v2/vehicle/<id>/location" -H "Authorization: Bearer $TOKEN_B"
-# -> 200 with another user's GPS location + owner email
+target still running at http://localhost:8888 — run a curl above to reproduce live.
 ```
 
-> A clean, config-driven CLI (`specseed scan --config target.yaml`) and a GitHub Action are on the [roadmap](#roadmap). Today the campaign runner is the entry point.
+Run that `curl` (with a real token) and you get back another user's GPS location and owner email — a resource `$TOKEN_B` does not own. When you're done:
+
+```bash
+python -c "from eval.apis import stop; stop('crapi')"
+```
+
+> For an unattended, multi-hour hunt (restarts the target each round, verifies every finding on a clean container, writes a resumable `REPORT.md`), use the campaign runner instead — see [Unattended bug hunting](#unattended-bug-hunting) below. A config-driven CLI (`specseed scan --config target.yaml`) and a GitHub Action are on the [roadmap](#roadmap).
 
 ### Point it at your own API
 
 Add an entry to `eval/apis.py` (spec path, base URL, two test identities, scope), or follow an existing entry such as `vampi` / `crapi` as a template. Then:
 
 ```bash
+python -m scripts.demo my-api
+# or, for an unattended multi-hour hunt with verified findings:
 python -m eval.campaign --apis my-api --hours 1 --no-engine --out runs/
 ```
 
@@ -110,6 +114,43 @@ A one-hour unattended run on crAPI issued 162k requests at a peak of 159 MB with
 | **SpecSeed** | **stateful + 3-identity differential** | **BOLA/BFLA** | **reproduce + verify + split** | **reach only** |
 
 SpecSeed is an authorization-and-semantics pre-check, not a full pentest. It won't find deep business-logic, client-side, or infrastructure defects.
+
+---
+
+## Unattended bug hunting
+
+`eval/campaign.py` runs SpecSeed against one or more APIs for as long as you
+let it: each round restarts the target from a clean container, runs Track A,
+verifies every new finding on a freshly restarted (or, for heavy stacks, live)
+instance, and appends what survives. Start it and walk away.
+
+```bash
+python -m eval.campaign --apis crapi,vampi --hours 8 --no-engine --out runs/
+```
+
+| option | meaning |
+|---|---|
+| `--apis crapi,vampi` | which wired-up APIs to hunt (default: all known) |
+| `--budget 600` | seconds per round (default 300) |
+| `--hours 8` / `--rounds 50` | how long to keep going |
+| `--jobs 3` | how many APIs to hunt at once (default: all of them) |
+| `--out runs` | where results are written |
+| `--no-engine` | skip the crash-fuzzing pass; authorization/semantic findings only |
+
+It writes as it goes, so results survive a crash or a Ctrl-C:
+
+```text
+runs/REPORT.md       regenerated every round; confirmed violations + warnings
+runs/verified.jsonl  findings that reproduced on a clean instance
+runs/findings.jsonl  everything found, verified or not
+runs/campaign.log    progress and failures
+```
+
+Re-running against an existing `--out` directory resumes: findings already
+confirmed are not re-verified, and later rounds use new seeds, so they explore
+rather than repeat. Unlike `scripts.demo`, the campaign tears the target down
+between and after rounds — use it for unattended hunting, and `scripts.demo`
+when you want the target left up to reproduce a finding live.
 
 ---
 
